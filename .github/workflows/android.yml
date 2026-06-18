@@ -22,10 +22,17 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
+    # KUNCI PERBAIKAN: Generate Gradle Wrapper otomatis di server GitHub jika file tidak ada
+    - name: Setup Gradle Wrapper if missing
+      run: |
+        if [ ! -f gradlew ]; then
+          echo "Gradlew missing. Initializing dynamic wrapper..."
+          gradle wrapper --gradle-version 8.5
+        fi
+
     - name: Grant Execute Permission for Gradlew
       run: chmod +x gradlew
 
-    # Menggunakan perintah assembleRelease sesuai rekomendasi AI OpenCode Anda
     - name: Build Release APK with Gradle
       run: ./gradlew assembleRelease
 
@@ -33,6 +40,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: Samsung-TV-Remote-Release-APK
-        # Path default tempat Gradle menyimpan hasil build APK rilis yang belum ditandatangani (unsigned)
         path: app/build/outputs/apk/release/*-unsigned.apk
         
