@@ -22,12 +22,15 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    # KUNCI PERBAIKAN: Generate Gradle Wrapper otomatis di server GitHub jika file tidak ada
+    # PERBAIKAN: Mengubah versi generator gradle wrapper ke versi 8.9 atau lebih tinggi
     - name: Setup Gradle Wrapper if missing
       run: |
         if [ ! -f gradlew ]; then
           echo "Gradlew missing. Initializing dynamic wrapper..."
-          gradle wrapper --gradle-version 8.5
+          gradle wrapper --gradle-version 8.9
+        else
+          echo "Updating Gradle wrapper to 8.9..."
+          ./gradlew wrapper --gradle-version 8.9
         fi
 
     - name: Grant Execute Permission for Gradlew
