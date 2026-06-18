@@ -24,7 +24,7 @@ jobs:
 
     # PERBAIKAN: Mengubah versi generator gradle wrapper ke versi 8.9 atau lebih tinggi
     - name: Setup Gradle Wrapper if missing
-      run: |
+      run: cd RemoteTv && |
         if [ ! -f gradlew ]; then
           echo "Gradlew missing. Initializing dynamic wrapper..."
           gradle wrapper --gradle-version 8.9
@@ -33,7 +33,7 @@ jobs:
           ./gradlew wrapper --gradle-version 8.9
         fi
 
-    - name: Grant Execute Permission for Gradlew
+    - name: Grant Execute RemoteTv for Gradlew
       run: chmod +x gradlew
 
     - name: Build Release APK with Gradle
