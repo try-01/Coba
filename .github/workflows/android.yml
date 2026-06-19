@@ -1,47 +1,36 @@
-name: Android APK Compiler (Android 9 - 16)
+name: Build Android APK
 
+# Kapan proses build akan berjalan?
 on:
   push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master" ] # Berjalan otomatis setiap ada kode baru yang di-push ke main/master
+  workflow_dispatch: # Menambahkan tombol manual agar Anda bisa mem-build kapan saja
 
 jobs:
   build:
-    name: Compile Production APK
-    runs-on: ubuntu-latest
+    name: Build Debug APK
+    runs-on: ubuntu-latest # Server cloud menggunakan Ubuntu
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: gradle
+      - name: ☕ Setup Java 17 (OpenJDK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle' # Menyimpan cache agar build berikutnya jauh lebih cepat
 
-    # PERBAIKAN: Mengubah versi generator gradle wrapper ke versi 8.9 atau lebih tinggi
-    - name: Setup Gradle Wrapper if missing
-      run: cd RemoteTv && |
-        if [ ! -f gradlew ]; then
-          echo "Gradlew missing. Initializing dynamic wrapper..."
-          gradle wrapper --gradle-version 8.9
-        else
-          echo "Updating Gradle wrapper to 8.9..."
-          ./gradlew wrapper --gradle-version 8.9
-        fi
+      - name: 🔑 Beri Izin Eksekusi Gradle
+        run: chmod +x gradlew
 
-    - name: Grant Execute RemoteTv for Gradlew
-      run: chmod +x gradlew
+      - name: 🔨 Build APK
+        run: ./gradlew assembleDebug --stacktrace
 
-    - name: Build Release APK with Gradle
-      run: ./gradlew assembleRelease
-
-    - name: Upload Compiled APK to Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: Samsung-TV-Remote-Release-APK
-        path: app/build/outputs/apk/release/*-unsigned.apk
-        
+      - name: 🚀 Upload APK sebagai Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Remote-Samsung-App
+          # Lokasi standar hasil build APK di Android Studio/Gradle
+          path: app/build/outputs/apk/debug/app-debug.apk 
