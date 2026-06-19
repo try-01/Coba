@@ -1,15 +1,14 @@
 name: Build Android APK
 
-# Kapan proses build akan berjalan?
 on:
   push:
-    branches: [ "main", "master" ] # Berjalan otomatis setiap ada kode baru yang di-push ke main/master
-  workflow_dispatch: # Menambahkan tombol manual agar Anda bisa mem-build kapan saja
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
     name: Build Debug APK
-    runs-on: ubuntu-latest # Server cloud menggunakan Ubuntu
+    runs-on: ubuntu-latest
 
     steps:
       - name: 📥 Checkout Repository
@@ -20,17 +19,18 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
-          cache: 'gradle' # Menyimpan cache agar build berikutnya jauh lebih cepat
 
-      - name: 🔑 Beri Izin Eksekusi Gradle
-        run: chmod +x gradlew
+      # Solusi: Menggunakan ekstensi Gradle resmi dari GitHub
+      - name: 🐘 Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
+      # Solusi: Menggunakan perintah 'gradle' (bukan ./gradlew)
       - name: 🔨 Build APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace
 
       - name: 🚀 Upload APK sebagai Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Remote-Samsung-App
-          # Lokasi standar hasil build APK di Android Studio/Gradle
+          # Pastikan path ini sesuai dengan struktur folder Anda
           path: app/build/outputs/apk/debug/app-debug.apk 
