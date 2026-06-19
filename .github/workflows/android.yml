@@ -21,13 +21,10 @@ jobs:
           java-version: '17'
 
       - name: 🔑 Beri Izin Eksekusi Skrip
-        run: cd SamsungTvRemote
-                chmod +x build.sh
-
-      - name: 🔨 Build dengan build.sh
-        # Kita panggil skrip yang sudah dibuatkan AI
-        run: cd SamsungTvRemote
-             ./build.sh assembleDebug
+        run: |
+          cd SamsungTvRemote
+          chmod +x build.sh
+          ./build.sh assembleDebug
 
       - name: 🚀 Upload APK
         uses: actions/upload-artifact@v4
