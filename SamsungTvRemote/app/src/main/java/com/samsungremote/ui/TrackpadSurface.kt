@@ -56,24 +56,31 @@ fun TrackpadSurface(
                 awaitPointerEventScope {
                     while (true) {
                         val down = awaitPointerEvent()
-                        val start = down.changes.first().position
+                        var start = down.changes.first().position
+                        var lastSwipeTime = 0L
 
                         do {
                             val event = awaitPointerEvent()
                             val change = event.changes.first()
-                            val delta = change.position - start
+                            val now = System.currentTimeMillis()
 
-                            when {
-                                abs(delta.x) > 30f && abs(delta.x) > abs(delta.y) -> {
-                                    if (delta.x > 0) onSwipe(SwipeDirection.RIGHT)
-                                    else onSwipe(SwipeDirection.LEFT)
-                                    // Reset start to avoid repeated triggers
-                                    start += change.position - start
-                                }
-                                abs(delta.y) > 30f && abs(delta.y) > abs(delta.x) -> {
-                                    if (delta.y > 0) onSwipe(SwipeDirection.DOWN)
-                                    else onSwipe(SwipeDirection.UP)
-                                    start += change.position - start
+                            // Debounce: only emit one swipe per 200 ms per direction
+                            if (now - lastSwipeTime > 200) {
+                                val delta = change.position - start
+
+                                when {
+                                    abs(delta.x) > 30f && abs(delta.x) > abs(delta.y) -> {
+                                        if (delta.x > 0) onSwipe(SwipeDirection.RIGHT)
+                                        else onSwipe(SwipeDirection.LEFT)
+                                        start = change.position
+                                        lastSwipeTime = now
+                                    }
+                                    abs(delta.y) > 30f && abs(delta.y) > abs(delta.x) -> {
+                                        if (delta.y > 0) onSwipe(SwipeDirection.DOWN)
+                                        else onSwipe(SwipeDirection.UP)
+                                        start = change.position
+                                        lastSwipeTime = now
+                                    }
                                 }
                             }
                             change.consume()

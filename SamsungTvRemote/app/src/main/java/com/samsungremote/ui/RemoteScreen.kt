@@ -28,10 +28,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.samsungremote.RemoteViewModel
 import com.samsungremote.TvConnectionState
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RemoteScreen(
     viewModel: RemoteViewModel

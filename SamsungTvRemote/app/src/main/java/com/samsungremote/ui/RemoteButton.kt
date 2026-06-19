@@ -152,6 +152,7 @@ fun performHaptic(context: Context) {
 // ── Presets ──────────────────────────────────────────────────
 
 object ButtonPresets {
+    @Composable
     fun power(
         onClick: () -> Unit,
         modifier: Modifier = Modifier,
@@ -170,6 +171,7 @@ object ButtonPresets {
         hapticEnabled = haptic
     )
 
+    @Composable
     fun dPad(
         onClick: () -> Unit,
         modifier: Modifier = Modifier,
@@ -190,6 +192,7 @@ object ButtonPresets {
         hapticEnabled = haptic
     )
 
+    @Composable
     fun dPadCenter(
         onClick: () -> Unit,
         modifier: Modifier = Modifier,
@@ -208,6 +211,7 @@ object ButtonPresets {
         hapticEnabled = haptic
     )
 
+    @Composable
     fun action(
         onClick: () -> Unit,
         modifier: Modifier = Modifier,
@@ -228,6 +232,7 @@ object ButtonPresets {
         hapticEnabled = haptic
     )
 
+    @Composable
     fun numpad(
         digit: String,
         onClick: () -> Unit,

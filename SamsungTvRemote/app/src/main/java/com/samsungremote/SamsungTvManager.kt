@@ -14,12 +14,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonObject
+import kotlinx.serialization.json.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -253,18 +248,16 @@ class SamsungTvManager(
     private fun onWsMessage(text: String, ip: String, mac: String) {
         try {
             val root = json.parseToJsonElement(text).jsonObject
-            val event = root["event"]?.jsonPrimitive?.contentOrNull
+            val event = root["event"]?.jsonPrimitive?.content
 
             when (event) {
                 "ms.channel.connect" -> {
                     val data = root["data"]?.jsonObject
-                    val token = data?.get("token")?.jsonPrimitive?.contentOrNull
-                    val deviceName = data?.let { d ->
-                        d["clients"]?.jsonArray
-                            ?.firstOrNull()
-                            ?.jsonObject
-                            ?.get("deviceName")?.jsonPrimitive?.contentOrNull
-                    }
+                    val token = data?.get("token")?.jsonPrimitive?.content
+                    val deviceName = data?.get("clients")?.jsonArray
+                        ?.firstOrNull()
+                        ?.jsonObject
+                        ?.get("deviceName")?.jsonPrimitive?.content
 
                     // Persist the token for future auto-connect
                     if (token != null) {
