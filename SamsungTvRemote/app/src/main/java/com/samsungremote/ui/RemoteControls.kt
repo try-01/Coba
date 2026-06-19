@@ -20,8 +20,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.VolumeDown
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.VolumeDown
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExitToApp
@@ -178,8 +178,8 @@ fun NavigationPage(
             label = "VOL",
             onUp = { onKey(SamsungRemoteKey.VOLUME_UP) },
             onDown = { onKey(SamsungRemoteKey.VOLUME_DOWN) },
-            upIcon = Icons.AutoMirrored.Filled.VolumeUp,
-            downIcon = Icons.AutoMirrored.Filled.VolumeDown,
+            upIcon = Icons.Filled.VolumeUp,
+            downIcon = Icons.Filled.VolumeDown,
             haptic = hapticEnabled
         )
 

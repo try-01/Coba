@@ -140,7 +140,7 @@ class SamsungTvDiscovery(private val context: Context) {
         while (System.currentTimeMillis() < deadline) {
             try {
                 val buf = ByteArray(2048)
-                val packet = DatagramPacket(buf, buf.length)
+                val packet = DatagramPacket(buf, buf.size)
                 socket.receive(packet)
 
                 val data = String(packet.data, 0, packet.length, Charsets.UTF_8)

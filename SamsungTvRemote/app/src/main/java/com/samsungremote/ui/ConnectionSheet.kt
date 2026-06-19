@@ -22,7 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeviceHub
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
+
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -187,7 +187,7 @@ fun ConnectionSheetContent(
         }
 
         // ── Divider ──────────────────────────────────────────────────
-        item { HorizontalDivider(color = RemoteColors.ButtonBorder) }
+        item { HorizontalDivider(color = RemoteColors.ButtonMid) }
 
         // ── Manual entry ─────────────────────────────────────────────
         item {
@@ -272,7 +272,7 @@ fun ConnectionSheetContent(
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = RemoteColors.NeonCyan,
-                    contentColor = RemoteColors.Background
+                    contentColor = RemoteColors.BackgroundDeep
                 )
             ) {
                 Icon(Icons.Filled.FlashOn, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -335,7 +335,7 @@ private fun textFieldColors() = OutlinedTextFieldDefaults.colors(
     unfocusedTextColor = RemoteColors.OnSurface,
     cursorColor = RemoteColors.NeonCyan,
     focusedBorderColor = RemoteColors.NeonCyan,
-    unfocusedBorderColor = RemoteColors.ButtonBorder,
+    unfocusedBorderColor = RemoteColors.ButtonMid,
     focusedLabelColor = RemoteColors.NeonCyan,
     unfocusedLabelColor = RemoteColors.OnSurfaceDim,
     focusedPlaceholderColor = RemoteColors.OnSurfaceDim.copy(alpha = 0.5f),

@@ -143,7 +143,7 @@ fun ConnectionHeader(
                     .height(2.dp)
                     .clip(RoundedCornerShape(1.dp)),
                 color = RemoteColors.NeonCyan,
-                trackColor = RemoteColors.ButtonBorder,
+                trackColor = RemoteColors.ButtonMid,
             )
         }
     }

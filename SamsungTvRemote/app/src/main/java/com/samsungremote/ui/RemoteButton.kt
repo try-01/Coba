@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -180,7 +182,7 @@ object ButtonPresets {
     ) = RemoteButton(
         onClick = onClick,
         modifier = modifier,
-        icon = androidx.compose.material.icons.Icons.Filled.PowerSettingsNew,
+        icon = Icons.Filled.PowerSettingsNew,
         contentDescription = "Power",
         size = 68.dp,
         shape = RoundedCornerShape(16.dp),

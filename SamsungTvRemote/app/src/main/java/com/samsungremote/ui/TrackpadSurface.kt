@@ -13,6 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.awaitPointerEvent
+import androidx.compose.ui.input.pointer.awaitPointerEventScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -45,7 +47,7 @@ fun TrackpadSurface(
                     )
                 )
             )
-            .border(1.dp, RemoteColors.ButtonBorder, RoundedCornerShape(16.dp))
+            .border(1.dp, RemoteColors.ButtonMid, RoundedCornerShape(16.dp))
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { onClick() },
