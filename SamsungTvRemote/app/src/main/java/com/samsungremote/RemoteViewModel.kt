@@ -144,14 +144,6 @@ class RemoteViewModel(
             } catch (_: Exception) { }
         }
     }
-        viewModelScope.launch {
-            try {
-                tvManager.sendKey(key)
-            } catch (_: Exception) {
-                // Error surfaced via connectionState
-            }
-        }
-    }
 
     fun wakeOnLan(mac: String) {
         viewModelScope.launch {
