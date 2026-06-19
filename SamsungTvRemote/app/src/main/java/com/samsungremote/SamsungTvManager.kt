@@ -18,6 +18,7 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import java.io.IOException
 import java.net.URLEncoder
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
@@ -33,7 +34,8 @@ class SamsungTvManager(
 ) {
 
     companion object {
-        private const val WSS_PORT = 8002
+        private const val PORT_WS = 8001
+        private const val PORT_WSS = 8002
         private const val DEFAULT_REMOTE_NAME = "DroidArchitect"
         private const val REMOTE_NAME_PADDED_LENGTH = 17
         private const val HANDSHAKE_TIMEOUT_MS = 15_000L
@@ -81,40 +83,52 @@ class SamsungTvManager(
         val resolvedToken = token ?: settings.getSavedToken()
         _connectionState.value = TvConnectionState.Connecting
 
-        val awaiter = CompletableDeferred<Result<Unit>>()
-        handshakeAwaiter = awaiter
+        val encodedName = URLEncoder.encode(
+            remoteName.padEnd(REMOTE_NAME_PADDED_LENGTH, '\u0000'),
+            "UTF-8"
+        )
 
-        try {
-            val encodedName = URLEncoder.encode(
-                remoteName.padEnd(REMOTE_NAME_PADDED_LENGTH, '\u0000'),
-                "UTF-8"
-            )
+        val tokenParam = if (resolvedToken != null) "&token=$resolvedToken" else ""
 
-            val url = buildString {
-                append("wss://$ip:$WSS_PORT/api/v2/channels/samsung.remote.control?name=$encodedName")
-                if (resolvedToken != null) append("&token=$resolvedToken")
+        val urlsToTry = listOf(
+            "ws://$ip:$PORT_WS/api/v2/channels/samsung.remote.control?name=$encodedName$tokenParam",
+            "wss://$ip:$PORT_WSS/api/v2/channels/samsung.remote.control?name=$encodedName$tokenParam"
+        )
+
+        val errors = mutableListOf<String>()
+
+        for (url in urlsToTry) {
+            val awaiter = CompletableDeferred<Result<Unit>>()
+            handshakeAwaiter = awaiter
+
+            try {
+                val request = Request.Builder().url(url).build()
+                val ws = httpClient.newWebSocket(request, createListener(ip, mac))
+                wsRef.set(ws)
+
+                withTimeout(HANDSHAKE_TIMEOUT_MS) {
+                    val result = awaiter.await()
+                    result.getOrThrow()
+                }
+
+                settings.saveCredentials(ip, mac, resolvedToken)
+                return
+
+            } catch (e: CancellationException) {
+                wsRef.getAndSet(null)?.close(1000, "Cancelled")
+                handshakeAwaiter = null
+                throw e
+            } catch (e: Exception) {
+                wsRef.getAndSet(null)?.close(1000, "Fallback")
+                handshakeAwaiter = null
+                errors.add("${url.take(30)}… : ${e.localizedMessage ?: e::class.simpleName}")
             }
-
-            val request = Request.Builder().url(url).build()
-
-            val ws = httpClient.newWebSocket(request, createListener(ip, mac))
-            wsRef.set(ws)
-
-            withTimeout(HANDSHAKE_TIMEOUT_MS) {
-                val result = awaiter.await()
-                result.getOrThrow()
-            }
-
-            settings.saveCredentials(ip, mac, resolvedToken)
-
-        } catch (e: CancellationException) {
-            disconnect()
-            throw e
-        } catch (e: Exception) {
-            disconnect()
-            _connectionState.value = TvConnectionState.Error(e)
-            throw e
         }
+
+        val msg = "All connection attempts failed:\n${errors.joinToString("\n")}"
+        val ex = IOException(msg)
+        _connectionState.value = TvConnectionState.Error(ex)
+        throw ex
     }
 
     // ── Disconnect ────────────────────────────────────────────
@@ -198,8 +212,9 @@ class SamsungTvManager(
 
         override fun onClosed(ws: WebSocket, code: Int, reason: String) {
             wsRef.compareAndSet(ws, null)
+            if (handshakeAwaiter != null) return // connect() handles state during handshake
             _connectionState.update {
-                if (it is TvConnectionState.Connected || it is TvConnectionState.Connecting) {
+                if (it is TvConnectionState.Connected) {
                     TvConnectionState.Disconnected(reason)
                 } else it
             }
@@ -207,9 +222,13 @@ class SamsungTvManager(
 
         override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
             wsRef.compareAndSet(ws, null)
-            _connectionState.value = TvConnectionState.Error(t)
-            handshakeAwaiter?.complete(Result.failure(t))
-            handshakeAwaiter = null
+            val awaiter = handshakeAwaiter
+            if (awaiter != null) {
+                awaiter.complete(Result.failure(t))
+                handshakeAwaiter = null
+            } else {
+                _connectionState.value = TvConnectionState.Error(t)
+            }
         }
     }
 

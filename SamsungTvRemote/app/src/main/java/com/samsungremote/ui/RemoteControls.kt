@@ -18,13 +18,15 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.VolumeDown
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.automirrored.filled.VolumeDown
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Keyboard
@@ -34,7 +36,6 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Tv
-import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -90,7 +91,7 @@ fun NavigationPage(
             )
             ButtonPresets.action(
                 onClick = { onKey(SamsungRemoteKey.EXIT) },
-                icon = Icons.Filled.ExitToApp,
+                icon = Icons.AutoMirrored.Filled.ExitToApp,
                 contentDescription = "Exit",
                 haptic = hapticEnabled
             )
@@ -178,8 +179,8 @@ fun NavigationPage(
             label = "VOL",
             onUp = { onKey(SamsungRemoteKey.VOLUME_UP) },
             onDown = { onKey(SamsungRemoteKey.VOLUME_DOWN) },
-            upIcon = Icons.Filled.VolumeUp,
-            downIcon = Icons.Filled.VolumeDown,
+            upIcon = Icons.AutoMirrored.Filled.VolumeUp,
+            downIcon = Icons.AutoMirrored.Filled.VolumeDown,
             haptic = hapticEnabled
         )
 
@@ -188,7 +189,7 @@ fun NavigationPage(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             ButtonPresets.action(
                 onClick = { onKey(SamsungRemoteKey.MUTE) },
-                icon = Icons.Filled.VolumeOff,
+                icon = Icons.AutoMirrored.Filled.VolumeOff,
                 contentDescription = "Mute",
                 haptic = hapticEnabled,
                 size = 56.dp
@@ -315,7 +316,7 @@ fun NumpadPage(
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             ButtonPresets.action(
                 onClick = { onKey(SamsungRemoteKey.GUIDE) },
-                icon = Icons.Filled.ViewList,
+                icon = Icons.AutoMirrored.Filled.ViewList,
                 contentDescription = "Guide",
                 haptic = hapticEnabled
             )
