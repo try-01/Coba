@@ -58,7 +58,6 @@ dependencies {
 
     // Networking
     implementation(libs.okhttp)
-    implementation(libs.okhttp.coroutines)
 
     // Serialization
     implementation(libs.kotlinx.serialization.json)
