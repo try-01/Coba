@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dangerous
-import androidx.compose.material.icons.filled.Haptic
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ZoomIn
@@ -67,7 +67,7 @@ fun SettingsSheetContent(
 
         // ── Haptic toggle ────────────────────────────────────────────
         SettingsRow(
-            icon = Icons.Filled.Haptic,
+            icon = Icons.Filled.TouchApp,
             label = "Haptic Feedback",
             subtitle = "Vibrate on button press"
         ) {
