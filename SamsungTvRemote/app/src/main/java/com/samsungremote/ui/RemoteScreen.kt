@@ -89,22 +89,29 @@ fun RemoteScreen(
             shape = MaterialTheme.shapes.large
         ) {
             SettingsSheetContent(
+                connectionState = uiState.connectionState,
                 hapticEnabled = uiState.hapticEnabled,
                 buttonScale = uiState.buttonScale,
                 serviceEnabled = uiState.serviceEnabled,
                 onHapticToggle = viewModel::setHapticEnabled,
                 onScaleChange = viewModel::setButtonScale,
                 onServiceToggle = viewModel::toggleService,
+                onDisconnect = viewModel::disconnect,
+                onShutdownServer = viewModel::shutdownServer,
                 onExitApp = viewModel::exitApp
             )
         }
     }
 
     // ── Main scaffold ─────────────────────────────────────────
-    Scaffold(
+    androidx.compose.foundation.layout.Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(RemoteColors.Background),
+            .background(RemoteBrushes.background)
+    ) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = {
             ConnectionHeader(
                 connectionState = uiState.connectionState,
@@ -152,6 +159,7 @@ fun RemoteScreen(
                 )
             }
         }
+    }
     }
 }
 

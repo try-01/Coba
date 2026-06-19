@@ -17,17 +17,25 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.VolumeDown
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.VolumeDown
-import androidx.compose.material.icons.filled.VolumeMute
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -62,10 +70,10 @@ fun NavigationPage(
             .fillMaxSize()
             .graphicsLayer(scaleX = buttonScale, scaleY = buttonScale)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
 
         // Row 1: Power + Source + Exit
         Row(
@@ -74,11 +82,21 @@ fun NavigationPage(
             verticalAlignment = Alignment.CenterVertically
         ) {
             ButtonPresets.power(onClick = { onKey(SamsungRemoteKey.POWER) }, haptic = hapticEnabled)
-            ButtonPresets.action(onClick = { onKey(SamsungRemoteKey.SOURCE) }, label = "SOURCE", haptic = hapticEnabled)
-            ButtonPresets.action(onClick = { onKey(SamsungRemoteKey.EXIT) }, label = "EXIT", haptic = hapticEnabled)
+            ButtonPresets.action(
+                onClick = { onKey(SamsungRemoteKey.SOURCE) },
+                icon = Icons.Filled.Tv,
+                contentDescription = "Source",
+                haptic = hapticEnabled
+            )
+            ButtonPresets.action(
+                onClick = { onKey(SamsungRemoteKey.EXIT) },
+                icon = Icons.Filled.ExitToApp,
+                contentDescription = "Exit",
+                haptic = hapticEnabled
+            )
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(24.dp))
 
         // D-Pad
         Column(
@@ -101,14 +119,17 @@ fun NavigationPage(
                 ButtonPresets.dPad(
                     onClick = { onKey(SamsungRemoteKey.LEFT) },
                     haptic = hapticEnabled,
-                    icon = Icons.Filled.KeyboardArrowLeft,
+                    icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                     contentDescription = "Left"
                 )
-                ButtonPresets.dPadCenter(onClick = { onKey(SamsungRemoteKey.ENTER) }, haptic = hapticEnabled)
+                ButtonPresets.dPadCenter(
+                    onClick = { onKey(SamsungRemoteKey.ENTER) },
+                    haptic = hapticEnabled
+                )
                 ButtonPresets.dPad(
                     onClick = { onKey(SamsungRemoteKey.RIGHT) },
                     haptic = hapticEnabled,
-                    icon = Icons.Filled.KeyboardArrowRight,
+                    icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = "Right"
                 )
             }
@@ -123,7 +144,7 @@ fun NavigationPage(
             )
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(24.dp))
 
         // Row 2: Back + Home + Menu
         Row(
@@ -132,52 +153,56 @@ fun NavigationPage(
         ) {
             ButtonPresets.action(
                 onClick = { onKey(SamsungRemoteKey.BACK) },
-                label = "BACK",
-                haptic = hapticEnabled,
-                icon = Icons.Filled.ArrowBack,
-                contentDescription = "Back"
+                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                haptic = hapticEnabled
             )
             ButtonPresets.action(
                 onClick = { onKey(SamsungRemoteKey.HOME) },
-                label = "HOME",
-                haptic = hapticEnabled,
                 icon = Icons.Filled.Home,
-                contentDescription = "Home"
+                contentDescription = "Home",
+                haptic = hapticEnabled
             )
             ButtonPresets.action(
                 onClick = { onKey(SamsungRemoteKey.MENU) },
-                label = "MENU",
-                haptic = hapticEnabled,
                 icon = Icons.Filled.Menu,
-                contentDescription = "Menu"
+                contentDescription = "Menu",
+                haptic = hapticEnabled
             )
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(28.dp))
 
         // Row 3: Volume / Channel rockers
         RockerGroup(
-            label = "VOLUME",
+            label = "VOL",
             onUp = { onKey(SamsungRemoteKey.VOLUME_UP) },
             onDown = { onKey(SamsungRemoteKey.VOLUME_DOWN) },
+            upIcon = Icons.AutoMirrored.Filled.VolumeUp,
+            downIcon = Icons.AutoMirrored.Filled.VolumeDown,
             haptic = hapticEnabled
         )
-        Spacer(Modifier.height(4.dp))
+
+        Spacer(Modifier.height(6.dp))
+
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             ButtonPresets.action(
                 onClick = { onKey(SamsungRemoteKey.MUTE) },
-                label = "MUTE",
+                icon = Icons.Filled.VolumeOff,
+                contentDescription = "Mute",
                 haptic = hapticEnabled,
-                size = 64.dp,
-                icon = Icons.Filled.VolumeMute,
-                contentDescription = "Mute"
+                size = 56.dp
             )
         }
-        Spacer(Modifier.height(8.dp))
+
+        Spacer(Modifier.height(6.dp))
+
         RockerGroup(
-            label = "CHANNEL",
+            label = "CH",
             onUp = { onKey(SamsungRemoteKey.CHANNEL_UP) },
             onDown = { onKey(SamsungRemoteKey.CHANNEL_DOWN) },
+            upIcon = Icons.Filled.Tune,
+            downIcon = Icons.Filled.Tune,
             haptic = hapticEnabled
         )
 
@@ -190,6 +215,8 @@ private fun RockerGroup(
     label: String,
     onUp: () -> Unit,
     onDown: () -> Unit,
+    upIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    downIcon: androidx.compose.ui.graphics.vector.ImageVector,
     haptic: Boolean
 ) {
     Row(
@@ -200,25 +227,25 @@ private fun RockerGroup(
         Text(
             text = label,
             color = RemoteColors.OnSurfaceDim,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(60.dp)
+            modifier = Modifier.width(48.dp)
         )
         Spacer(Modifier.width(8.dp))
         RemoteButton(
             onClick = onUp,
-            icon = Icons.Filled.VolumeUp,
+            icon = upIcon,
             size = 44.dp,
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 4.dp),
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 6.dp, bottomEnd = 6.dp),
             tint = RemoteColors.OnSurface,
             hapticEnabled = haptic
         )
-        Spacer(Modifier.width(4.dp))
+        Spacer(Modifier.width(6.dp))
         RemoteButton(
             onClick = onDown,
-            icon = Icons.Filled.VolumeDown,
+            icon = downIcon,
             size = 44.dp,
-            shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 20.dp, bottomEnd = 20.dp),
+            shape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 20.dp, bottomEnd = 20.dp),
             tint = RemoteColors.OnSurface,
             hapticEnabled = haptic
         )
@@ -240,7 +267,7 @@ fun NumpadPage(
         modifier = modifier
             .fillMaxSize()
             .graphicsLayer(scaleX = buttonScale, scaleY = buttonScale)
-            .padding(horizontal = 32.dp, vertical = 8.dp),
+            .padding(horizontal = 36.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -266,12 +293,12 @@ fun NumpadPage(
 
         digits.forEach { row ->
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier.padding(vertical = 6.dp)
             ) {
                 row.forEach { digit ->
                     if (digit.isBlank()) {
-                        Spacer(Modifier.size(64.dp))
+                        Spacer(Modifier.size(66.dp))
                     } else {
                         ButtonPresets.numpad(
                             digit = digit,
@@ -283,12 +310,27 @@ fun NumpadPage(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(20.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ButtonPresets.action(onClick = { onKey(SamsungRemoteKey.GUIDE) }, label = "GUIDE", haptic = hapticEnabled)
-            ButtonPresets.action(onClick = { onKey(SamsungRemoteKey.INFO) }, label = "INFO", haptic = hapticEnabled)
-            ButtonPresets.action(onClick = { onKey(SamsungRemoteKey.SMART_HUB) }, label = "HUB", haptic = hapticEnabled)
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            ButtonPresets.action(
+                onClick = { onKey(SamsungRemoteKey.GUIDE) },
+                icon = Icons.Filled.ViewList,
+                contentDescription = "Guide",
+                haptic = hapticEnabled
+            )
+            ButtonPresets.action(
+                onClick = { onKey(SamsungRemoteKey.INFO) },
+                icon = Icons.Filled.Info,
+                contentDescription = "Info",
+                haptic = hapticEnabled
+            )
+            ButtonPresets.action(
+                onClick = { onKey(SamsungRemoteKey.SMART_HUB) },
+                icon = Icons.Filled.Apps,
+                contentDescription = "Smart Hub",
+                haptic = hapticEnabled
+            )
         }
     }
 }
@@ -312,15 +354,16 @@ fun SmartPage(
             .fillMaxSize()
             .graphicsLayer(scaleX = buttonScale, scaleY = buttonScale)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 20.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = "TRACKPAD",
             color = RemoteColors.OnSurfaceDim,
-            fontSize = 11.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
+            letterSpacing = 2.sp,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
@@ -344,29 +387,34 @@ fun SmartPage(
             )
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            ButtonPresets.action(onClick = { onKey(SamsungRemoteKey.MOUSE_LEFT_CLICK) }, label = "CLICK", haptic = hapticEnabled)
+            ButtonPresets.action(
+                onClick = { onKey(SamsungRemoteKey.MOUSE_LEFT_CLICK) },
+                icon = Icons.Filled.TouchApp,
+                contentDescription = "Click",
+                haptic = hapticEnabled
+            )
             ButtonPresets.action(
                 onClick = { onKey(SamsungRemoteKey.KEYBOARD) },
-                label = "KEYBOARD",
-                haptic = hapticEnabled,
                 icon = Icons.Filled.Keyboard,
-                contentDescription = "Keyboard"
+                contentDescription = "Keyboard",
+                haptic = hapticEnabled
             )
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(28.dp))
 
         Text(
             text = "KEYBOARD INPUT",
             color = RemoteColors.OnSurfaceDim,
-            fontSize = 11.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
+            letterSpacing = 2.sp,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
@@ -386,25 +434,32 @@ fun SmartPage(
                 }
             ),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(14.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = RemoteColors.OnSurface,
                 unfocusedTextColor = RemoteColors.OnSurface,
                 cursorColor = RemoteColors.NeonCyan,
                 focusedBorderColor = RemoteColors.NeonCyan,
-                unfocusedBorderColor = RemoteColors.ButtonBorder,
+                unfocusedBorderColor = RemoteColors.ButtonMid,
                 focusedLabelColor = RemoteColors.NeonCyan,
-                unfocusedLabelColor = RemoteColors.OnSurfaceDim
+                unfocusedLabelColor = RemoteColors.OnSurfaceDim,
+                focusedContainerColor = RemoteColors.SurfaceVariant,
+                unfocusedContainerColor = RemoteColors.Surface
             )
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            ButtonPresets.action(onClick = { onKey(SamsungRemoteKey.BACK) }, label = "BACKSP", haptic = hapticEnabled)
+            ButtonPresets.action(
+                onClick = { onKey(SamsungRemoteKey.BACK) },
+                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Backspace",
+                haptic = hapticEnabled
+            )
             RemoteButton(
                 onClick = {
                     if (textInput.isNotBlank()) {
@@ -414,14 +469,18 @@ fun SmartPage(
                 },
                 label = "SEND",
                 size = 72.dp,
-                shape = RoundedCornerShape(14.dp),
-                backgroundBrush = Brush.linearGradient(
-                    listOf(RemoteColors.NeonCyan, RemoteColors.NeonCyan.copy(alpha = 0.7f))
-                ),
-                tint = RemoteColors.Background,
+                shape = RoundedCornerShape(16.dp),
+                backgroundBrush = RemoteBrushes.accent,
+                tint = RemoteColors.BackgroundDeep,
+                glowColor = RemoteColors.NeonCyanGlow,
                 hapticEnabled = hapticEnabled
             )
-            ButtonPresets.action(onClick = { onKey(SamsungRemoteKey.KEYBOARD_DONE) }, label = "DONE", haptic = hapticEnabled)
+            ButtonPresets.action(
+                onClick = { onKey(SamsungRemoteKey.KEYBOARD_DONE) },
+                icon = Icons.Filled.Check,
+                contentDescription = "Done",
+                haptic = hapticEnabled
+            )
         }
 
         Spacer(Modifier.height(16.dp))

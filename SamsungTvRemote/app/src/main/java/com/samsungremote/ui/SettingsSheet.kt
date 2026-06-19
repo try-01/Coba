@@ -12,12 +12,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dangerous
-import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -31,25 +34,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.samsungremote.TvConnectionState
 
 @Composable
 fun SettingsSheetContent(
+    connectionState: TvConnectionState,
     hapticEnabled: Boolean,
     buttonScale: Float,
     serviceEnabled: Boolean,
     onHapticToggle: (Boolean) -> Unit,
     onScaleChange: (Float) -> Unit,
     onServiceToggle: () -> Unit,
+    onDisconnect: () -> Unit,
+    onShutdownServer: () -> Unit,
     onExitApp: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isConnected = connectionState is TvConnectionState.Connected
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // ── Title ────────────────────────────────────────────────────
+        // ── Title ────────────────────────────────────────────────
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Filled.Settings,
@@ -65,7 +74,9 @@ fun SettingsSheetContent(
             )
         }
 
-        // ── Haptic toggle ────────────────────────────────────────────
+        HorizontalDivider(color = RemoteColors.ButtonMid)
+
+        // ── Haptic toggle ────────────────────────────────────────
         SettingsRow(
             icon = Icons.Filled.TouchApp,
             label = "Haptic Feedback",
@@ -78,7 +89,7 @@ fun SettingsSheetContent(
             )
         }
 
-        // ── Button scale ─────────────────────────────────────────────
+        // ── Button scale ─────────────────────────────────────────
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
@@ -99,7 +110,7 @@ fun SettingsSheetContent(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("0.5×", color = RemoteColors.OnSurfaceDim, style = MaterialTheme.typography.labelSmall)
+                Text("0.5\u00D7", color = RemoteColors.OnSurfaceDim, style = MaterialTheme.typography.labelSmall)
                 Slider(
                     value = buttonScale,
                     onValueChange = onScaleChange,
@@ -109,15 +120,15 @@ fun SettingsSheetContent(
                         .padding(horizontal = 8.dp),
                     colors = sliderColors()
                 )
-                Text("2.0×", color = RemoteColors.OnSurfaceDim, style = MaterialTheme.typography.labelSmall)
+                Text("2.0\u00D7", color = RemoteColors.OnSurfaceDim, style = MaterialTheme.typography.labelSmall)
             }
         }
 
-        // ── Service toggle ───────────────────────────────────────────
+        // ── Service toggle ───────────────────────────────────────
         SettingsRow(
             icon = Icons.Filled.PowerSettingsNew,
             label = "Remote Service",
-            subtitle = if (serviceEnabled) "Active — scan & connect enabled" else "Disabled — saves battery"
+            subtitle = if (serviceEnabled) "Active \u2014 scan & connect enabled" else "Disabled \u2014 saves battery"
         ) {
             Switch(
                 checked = serviceEnabled,
@@ -126,9 +137,47 @@ fun SettingsSheetContent(
             )
         }
 
-        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(color = RemoteColors.ButtonMid)
 
-        // ── Deep exit button ─────────────────────────────────────────
+        // ── Connection controls ──────────────────────────────────
+
+        if (isConnected) {
+            Button(
+                onClick = onDisconnect,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RemoteColors.Amber.copy(alpha = 0.15f),
+                    contentColor = RemoteColors.Amber
+                )
+            ) {
+                Icon(Icons.Filled.LinkOff, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Disconnect from TV", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        }
+
+        Button(
+            onClick = onShutdownServer,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = RemoteColors.Amber.copy(alpha = 0.15f),
+                contentColor = RemoteColors.Amber
+            )
+        ) {
+            Icon(Icons.Filled.PowerOff, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Shut Down Server", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        // ── Deep exit button ─────────────────────────────────────
         Button(
             onClick = onExitApp,
             modifier = Modifier
@@ -147,20 +196,20 @@ fun SettingsSheetContent(
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                text = "EXIT APP — Kill Connection & Background",
+                text = "EXIT APP \u2014 Kill All Processes",
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp
             )
         }
 
         Text(
-            text = "WSS connection, discovery engine, and all background processes will be terminated. Zero battery drain.",
+            text = "WSS connection, discovery engine, and all background threads will be terminated. Zero battery drain.",
             color = RemoteColors.OnSurfaceDim.copy(alpha = 0.6f),
             style = MaterialTheme.typography.labelSmall,
             lineHeight = 16.sp
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -203,12 +252,12 @@ private fun switchColors() = SwitchDefaults.colors(
     checkedThumbColor = RemoteColors.NeonCyan,
     checkedTrackColor = RemoteColors.NeonCyan.copy(alpha = 0.3f),
     uncheckedThumbColor = RemoteColors.OnSurfaceDim,
-    uncheckedTrackColor = RemoteColors.ButtonBorder
+    uncheckedTrackColor = RemoteColors.ButtonMid
 )
 
 @Composable
 private fun sliderColors() = SliderDefaults.colors(
     thumbColor = RemoteColors.NeonCyan,
     activeTrackColor = RemoteColors.NeonCyan,
-    inactiveTrackColor = RemoteColors.ButtonBorder
+    inactiveTrackColor = RemoteColors.ButtonMid
 )

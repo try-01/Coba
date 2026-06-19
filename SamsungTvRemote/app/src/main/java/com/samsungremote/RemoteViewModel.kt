@@ -189,7 +189,11 @@ class RemoteViewModel(
         }
     }
 
-    // ── Deep exit ────────────────────────────────────────────
+    // ── Server / Exit ────────────────────────────────────────
+
+    fun shutdownServer() {
+        disconnect()
+    }
 
     fun exitApp() {
         tvManager.shutdown()

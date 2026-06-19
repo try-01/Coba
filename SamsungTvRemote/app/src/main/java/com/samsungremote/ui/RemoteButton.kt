@@ -11,11 +11,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,12 +39,6 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/**
- * A stylized remote-control button with haptic feedback, press
- * animation, and a glass-morphism look.
- *
- * @param hapticEnabled when true, a short 30 ms vibration fires on press.
- */
 @Composable
 fun RemoteButton(
     onClick: () -> Unit,
@@ -53,14 +47,13 @@ fun RemoteButton(
     icon: ImageVector? = null,
     painter: Painter? = null,
     contentDescription: String? = null,
-    shape: Shape = RoundedCornerShape(12.dp),
+    shape: Shape = RoundedCornerShape(14.dp),
     size: Dp = 60.dp,
     fontSize: TextUnit = 10.sp,
-    tint: Color = MaterialTheme.colorScheme.onSurface,
-    backgroundBrush: Brush = Brush.linearGradient(
-        listOf(RemoteColors.ButtonGradientStart, RemoteColors.ButtonGradientEnd)
-    ),
-    borderColor: Color = RemoteColors.ButtonBorder,
+    tint: Color = RemoteColors.OnSurface,
+    backgroundBrush: Brush = RemoteBrushes.glass,
+    disabledAlpha: Float = 0.38f,
+    glowColor: Color = Color.Transparent,
     hapticEnabled: Boolean = true,
     enabled: Boolean = true
 ) {
@@ -68,16 +61,34 @@ fun RemoteButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed && enabled) 0.90f else 1f,
+    val animScale by animateFloatAsState(
+        targetValue = when {
+            !enabled -> 1f
+            isPressed -> 0.92f
+            else -> 1f
+        },
         label = "pressScale"
+    )
+
+    val animElevation by animateFloatAsState(
+        targetValue = when {
+            !enabled -> 0f
+            isPressed -> 2f
+            else -> 8f
+        },
+        label = "elevation"
     )
 
     Box(
         modifier = modifier
             .size(size)
-            .scale(scale)
-            .shadow(if (enabled) 4.dp else 0.dp, shape, ambientColor = RemoteColors.GlassShadow)
+            .scale(animScale)
+            .shadow(
+                elevation = animElevation.dp,
+                shape = shape,
+                ambientColor = glowColor,
+                spotColor = glowColor
+            )
             .clip(shape)
             .background(backgroundBrush, shape)
             .then(
@@ -95,39 +106,50 @@ fun RemoteButton(
             ),
         contentAlignment = Alignment.Center
     ) {
+        // Inner glass highlight (top edge shine)
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(shape)
+                .background(RemoteColors.ButtonHighlight)
+        )
+
+        // Glow ring (for power/accent buttons)
+        if (glowColor != Color.Transparent && enabled) {
+            Box(
+                modifier = Modifier
+                    .size(size * 0.85f)
+                    .clip(shape)
+                    .background(glowColor.copy(alpha = 0.15f))
+            )
+        }
+
+        // Content
         if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription ?: label,
-                tint = if (enabled) tint else tint.copy(alpha = 0.38f),
-                modifier = Modifier.size(size * 0.45f)
+                tint = if (enabled) tint else tint.copy(alpha = disabledAlpha),
+                modifier = Modifier.size(size * 0.50f)
             )
         } else if (painter != null) {
             Icon(
                 painter = painter,
                 contentDescription = contentDescription ?: label,
-                tint = if (enabled) tint else tint.copy(alpha = 0.38f),
-                modifier = Modifier.size(size * 0.45f)
+                tint = if (enabled) tint else tint.copy(alpha = disabledAlpha),
+                modifier = Modifier.size(size * 0.50f)
             )
         }
         if (label.isNotEmpty()) {
             Text(
                 text = label,
-                color = if (enabled) tint else tint.copy(alpha = 0.38f),
+                color = if (enabled) tint else tint.copy(alpha = disabledAlpha),
                 fontSize = fontSize,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
                 maxLines = 1
             )
         }
-
-        // Glass edge highlight
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .clip(shape)
-                .background(RemoteColors.GlassHighlight)
-        )
     }
 }
 
@@ -143,10 +165,8 @@ fun performHaptic(context: Context) {
                 context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
             }
         }
-        vibrator?.vibrate(VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE))
-    } catch (_: Exception) {
-        // Haptic is best-effort
-    }
+        vibrator?.vibrate(VibrationEffect.createOneShot(20, VibrationEffect.DEFAULT_AMPLITUDE))
+    } catch (_: Exception) { }
 }
 
 // ── Presets ──────────────────────────────────────────────────
@@ -160,14 +180,13 @@ object ButtonPresets {
     ) = RemoteButton(
         onClick = onClick,
         modifier = modifier,
-        label = "POWER",
-        size = 64.dp,
-        fontSize = 11.sp,
-        shape = RoundedCornerShape(14.dp),
-        backgroundBrush = Brush.linearGradient(
-            listOf(RemoteColors.PowerRed, RemoteColors.PowerRed.copy(alpha = 0.7f))
-        ),
+        icon = androidx.compose.material.icons.Icons.Filled.PowerSettingsNew,
+        contentDescription = "Power",
+        size = 68.dp,
+        shape = RoundedCornerShape(16.dp),
+        backgroundBrush = RemoteBrushes.power,
         tint = Color.White,
+        glowColor = RemoteColors.PowerRedGlow,
         hapticEnabled = haptic
     )
 
@@ -184,11 +203,10 @@ object ButtonPresets {
         icon = icon,
         contentDescription = contentDescription,
         shape = CircleShape,
-        size = 52.dp,
-        backgroundBrush = Brush.linearGradient(
-            listOf(RemoteColors.SurfaceElevated, RemoteColors.SurfaceVariant)
-        ),
+        size = 54.dp,
+        backgroundBrush = RemoteBrushes.glass,
         tint = RemoteColors.NeonCyan,
+        glowColor = RemoteColors.NeonCyanGlow,
         hapticEnabled = haptic
     )
 
@@ -202,12 +220,11 @@ object ButtonPresets {
         modifier = modifier,
         label = "OK",
         shape = CircleShape,
-        size = 48.dp,
-        fontSize = 12.sp,
-        backgroundBrush = Brush.linearGradient(
-            listOf(RemoteColors.NeonCyan, RemoteColors.NeonCyan.copy(alpha = 0.7f))
-        ),
-        tint = RemoteColors.Background,
+        size = 50.dp,
+        fontSize = 13.sp,
+        backgroundBrush = RemoteBrushes.accent,
+        tint = RemoteColors.BackgroundDeep,
+        glowColor = RemoteColors.NeonCyanGlow,
         hapticEnabled = haptic
     )
 
@@ -228,6 +245,7 @@ object ButtonPresets {
         contentDescription = contentDescription,
         size = size,
         fontSize = 10.sp,
+        shape = RoundedCornerShape(14.dp),
         tint = RemoteColors.OnSurface,
         hapticEnabled = haptic
     )
@@ -242,14 +260,12 @@ object ButtonPresets {
         onClick = onClick,
         modifier = modifier,
         label = digit,
-        size = 64.dp,
-        fontSize = 20.sp,
+        size = 66.dp,
+        fontSize = 22.sp,
         shape = RoundedCornerShape(16.dp),
-        backgroundBrush = Brush.linearGradient(
-            listOf(RemoteColors.SurfaceVariant, RemoteColors.SurfaceElevated)
-        ),
+        backgroundBrush = RemoteBrushes.glass,
         tint = RemoteColors.OnSurface,
-        borderColor = RemoteColors.ButtonBorder,
+        glowColor = RemoteColors.NeonCyanGlow.copy(alpha = 0.1f),
         hapticEnabled = haptic
     )
 }

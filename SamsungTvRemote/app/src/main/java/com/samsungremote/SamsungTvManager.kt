@@ -9,9 +9,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.*
@@ -21,24 +19,15 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import java.net.URLEncoder
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
-/**
- * Core engine that manages the WebSocket Secure (WSS) connection to a
- * Samsung Tizen TV for remote control.
- *
- * ## Connection flow
- * 1. [connect] opens a WSS to `wss://{ip}:8002/api/v2/channels/…`
- * 2. TV responds with `ms.channel.connect` containing a pairing token
- * 3. On first connection the TV shows a PIN on screen; subsequent
- *    connections pass the saved token for automatic pairing
- * 4. [sendKey] transmits a JSON-RPC-style "Click" command
- *
- * Thread safety: all mutable state is accessed only via the internal
- * coroutine scope (Dispatchers.IO). The WebSocket reference is held
- * in an AtomicReference for safe cross-thread read/write.
- */
 class SamsungTvManager(
     private val settings: SettingsDataStore
 ) {
@@ -47,42 +36,42 @@ class SamsungTvManager(
         private const val WSS_PORT = 8002
         private const val DEFAULT_REMOTE_NAME = "DroidArchitect"
         private const val REMOTE_NAME_PADDED_LENGTH = 17
-        private const val HANDSHAKE_TIMEOUT_MS = 10_000L
+        private const val HANDSHAKE_TIMEOUT_MS = 15_000L
         private const val PING_INTERVAL_SECONDS = 30L
     }
 
-    // ── JSON ──────────────────────────────────────────────────
-
     private val json = Json { ignoreUnknownKeys = true }
 
-    // ── OkHttp shared client ──────────────────────────────────
+    // Samsung TVs use self-signed WSS certificates — we must trust them all.
+    private val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
+        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
+        override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+    })
+
+    private val trustAllSslSocketFactory: SSLSocketFactory by lazy {
+        SSLContext.getInstance("TLS").apply {
+            init(null, trustAllCerts, SecureRandom())
+        }.socketFactory
+    }
 
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .pingInterval(PING_INTERVAL_SECONDS, TimeUnit.SECONDS)
-        .readTimeout(0, TimeUnit.SECONDS) // long-lived WS — no read deadline
+        .readTimeout(0, TimeUnit.SECONDS)
+        .sslSocketFactory(trustAllSslSocketFactory, trustAllCerts[0] as X509TrustManager)
+        .hostnameVerifier { _, _ -> true }
         .build()
-
-    // ── Connection state ─────────────────────────────────────
 
     private val _connectionState = MutableStateFlow<TvConnectionState>(TvConnectionState.Idle)
     val connectionState: StateFlow<TvConnectionState> = _connectionState.asStateFlow()
 
     private val wsRef = AtomicReference<WebSocket?>(null)
 
-    // Internal scope tied to the manager's lifetime
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var handshakeAwaiter: CompletableDeferred<Result<Unit>>? = null
 
-    // ── Public API ────────────────────────────────────────────
+    // ── Connect ───────────────────────────────────────────────
 
-    /**
-     * Opens a WSS connection to [ip]:8002.
-     *
-     * If [token] is null the method first looks for a previously-saved
-     * token in DataStore. On first-ever connect the TV will display a
-     * pairing prompt; the emitted token from the handshake is
-     * automatically persisted for future connections.
-     */
     suspend fun connect(
         ip: String,
         mac: String,
@@ -111,14 +100,12 @@ class SamsungTvManager(
             val ws = httpClient.newWebSocket(request, createListener(ip, mac))
             wsRef.set(ws)
 
-            // Block until handshake completes or times out
             withTimeout(HANDSHAKE_TIMEOUT_MS) {
                 val result = awaiter.await()
                 result.getOrThrow()
             }
 
-            // Persist credentials only on success
-            settings.saveCredentials(ip, mac, token)
+            settings.saveCredentials(ip, mac, resolvedToken)
 
         } catch (e: CancellationException) {
             disconnect()
@@ -130,9 +117,8 @@ class SamsungTvManager(
         }
     }
 
-    /**
-     * Gracefully closes the WebSocket and resets state.
-     */
+    // ── Disconnect ────────────────────────────────────────────
+
     fun disconnect() {
         wsRef.getAndSet(null)?.close(1000, "Client disconnect")
         handshakeAwaiter?.complete(Result.failure(IllegalStateException("Disconnected")))
@@ -144,15 +130,21 @@ class SamsungTvManager(
         }
     }
 
-    /**
-     * Sends a single key-press command over the active WebSocket.
-     *
-     * @throws IllegalStateException if not connected.
-     * @throws java.io.IOException if the WebSocket send buffer is full.
-     */
+    fun shutdown() {
+        wsRef.getAndSet(null)?.close(1000, "App shutdown")
+        handshakeAwaiter?.complete(Result.failure(IllegalStateException("Shutdown")))
+        handshakeAwaiter = null
+        scope.cancel()
+        httpClient.dispatcher.executorService.shutdown()
+        httpClient.connectionPool.evictAll()
+        _connectionState.value = TvConnectionState.Disconnected("Shutdown")
+    }
+
+    // ── Send commands ─────────────────────────────────────────
+
     suspend fun sendKey(key: SamsungRemoteKey) {
         val ws = wsRef.get()
-            ?: throw IllegalStateException("WebSocket is null — not connected")
+            ?: throw IllegalStateException("WebSocket is null \u2014 not connected")
 
         val msg = buildJsonObject {
             put("method", "ms.remote.control")
@@ -168,19 +160,14 @@ class SamsungTvManager(
         val sent = ws.send(payload)
 
         if (!sent) {
-            // WebSocket output buffer is full or socket is closing
             disconnect()
-            throw java.io.IOException("WebSocket send returned false — probable connection loss")
+            throw java.io.IOException("WebSocket send returned false \u2014 probable connection loss")
         }
     }
 
-    /**
-     * Sends a text string via the KEYBOARD virtual remote.
-     * The TV must be in keyboard input mode.
-     */
     suspend fun sendText(text: String) {
         val ws = wsRef.get()
-            ?: throw IllegalStateException("WebSocket is null — not connected")
+            ?: throw IllegalStateException("WebSocket is null \u2014 not connected")
 
         val msg = buildJsonObject {
             put("method", "ms.remote.control")
@@ -195,29 +182,11 @@ class SamsungTvManager(
         ws.send(payload)
     }
 
-    /**
-     * Performs a deep-clean shutdown: closes the WebSocket, evicts
-     * the connection pool, shuts down the dispatcher, and cancels
-     * the internal coroutine scope.
-     *
-     * Call this from [android.app.Activity.finishAndRemoveTask] for
-     * zero battery-drain exit.
-     */
-    fun shutdown() {
-        wsRef.getAndSet(null)?.close(1000, "App shutdown")
-        httpClient.dispatcher.executorService.shutdown()
-        httpClient.connectionPool.evictAll()
-        scope.cancel()
-        _connectionState.value = TvConnectionState.Disconnected("Shutdown")
-    }
-
     // ── WebSocket listener ────────────────────────────────────
 
     private fun createListener(ip: String, mac: String) = object : WebSocketListener() {
 
-        override fun onOpen(ws: WebSocket, response: Response) {
-            // Connection upgraded — waiting for ms.channel.connect
-        }
+        override fun onOpen(ws: WebSocket, response: Response) { }
 
         override fun onMessage(ws: WebSocket, text: String) {
             onWsMessage(text, ip, mac)
@@ -238,8 +207,7 @@ class SamsungTvManager(
 
         override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
             wsRef.compareAndSet(ws, null)
-            val errorState = TvConnectionState.Error(t)
-            _connectionState.value = errorState
+            _connectionState.value = TvConnectionState.Error(t)
             handshakeAwaiter?.complete(Result.failure(t))
             handshakeAwaiter = null
         }
@@ -259,10 +227,12 @@ class SamsungTvManager(
                         ?.jsonObject
                         ?.get("deviceName")?.jsonPrimitive?.content
 
-                    // Persist the token for future auto-connect
-                    if (token != null) {
+                    // If token is "null" as a string, treat it as no-token (first pairing)
+                    val effectiveToken = token?.takeUnless { it == "null" || it.isBlank() }
+
+                    if (effectiveToken != null) {
                         scope.launch {
-                            settings.saveCredentials(ip, mac, token)
+                            settings.saveCredentials(ip, mac, effectiveToken)
                         }
                     }
 
@@ -275,20 +245,12 @@ class SamsungTvManager(
                     handshakeAwaiter = null
                 }
 
-                "ms.channel.ready" -> {
-                    // TV signals the channel is fully initialised — connection is live
-                }
+                "ms.channel.ready" -> { }
 
-                "ms.remote.control" -> {
-                    // Echo confirmation of a sent key — no action needed
-                }
+                "ms.remote.control" -> { }
 
-                else -> {
-                    // Unknown event — ignore silently (firmware-specific pings etc.)
-                }
+                else -> { }
             }
-        } catch (_: Exception) {
-            // Malformed JSON from TV — ignore
-        }
+        } catch (_: Exception) { }
     }
 }
