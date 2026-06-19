@@ -24,7 +24,7 @@ jobs:
         run: |
           cd SamsungTvRemote
           chmod +x build.sh
-          ./build.sh assembleDebug --no-daemon
+          ./build.sh installDebug
 
       - name: 🚀 Upload APK
         uses: actions/upload-artifact@v4
