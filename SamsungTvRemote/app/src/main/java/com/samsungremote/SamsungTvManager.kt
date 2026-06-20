@@ -82,8 +82,6 @@ class SamsungTvManager(
         val resolvedToken = token ?: settings.getSavedToken()
         _connectionState.value = TvConnectionState.Connecting
 
-        val tokenParam = if (resolvedToken != null) "&token=$resolvedToken" else ""
-
         // Try several name formats — different firmware versions expect different encodings
         val nameFormats = listOf(
             remoteName.padEnd(REMOTE_NAME_PADDED_LENGTH, ' '),               // space-padded
@@ -92,11 +90,18 @@ class SamsungTvManager(
         )
         val encodedNames = nameFormats.map { URLEncoder.encode(it, "UTF-8") }
 
+        val tokenSuffixes = listOfNotNull(
+            "",                                                           // try without token (in case saved token is stale)
+            if (resolvedToken != null) "&token=$resolvedToken" else null  // with saved token
+        )
+
         val urlsToTry = encodedNames.flatMap { encoded ->
-            listOf(
-                "ws://$ip:$PORT_WS/api/v2/channels/samsung.remote.control?name=$encoded$tokenParam",
-                "wss://$ip:$PORT_WSS/api/v2/channels/samsung.remote.control?name=$encoded$tokenParam"
-            )
+            tokenSuffixes.flatMap { tok ->
+                listOf(
+                    "ws://$ip:$PORT_WS/api/v2/channels/samsung.remote.control?name=$encoded$tok",
+                    "wss://$ip:$PORT_WSS/api/v2/channels/samsung.remote.control?name=$encoded$tok"
+                )
+            }
         }
 
         val errors = mutableListOf<String>()

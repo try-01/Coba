@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 // ── One-shot events consumed by the Activity ─────────────────
@@ -91,12 +92,14 @@ class RemoteViewModel(
         }
     }
 
+    private var discoveryJob: Job? = null
+
     // ── Connection actions ───────────────────────────────────
 
     fun startDiscovery() {
-        if (_uiState.value.isDiscovering) return
+        discoveryJob?.cancel()
         _uiState.update { it.copy(isDiscovering = true) }
-        viewModelScope.launch {
+        discoveryJob = viewModelScope.launch {
             try {
                 val tvs = discovery.discover()
                 _uiState.update { it.copy(discoveredTvs = tvs, isDiscovering = false) }
