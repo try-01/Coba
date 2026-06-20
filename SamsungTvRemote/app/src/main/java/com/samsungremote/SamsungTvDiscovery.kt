@@ -6,20 +6,14 @@ import java.io.BufferedReader
 import java.io.FileReader
 import java.net.DatagramPacket
 import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.MulticastSocket
+import java.net.NetworkInterface
+import java.net.Socket
 import java.net.SocketTimeoutException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/**
- * Discovers Samsung TVs on the LAN via SSDP (UPnP M-SEARCH).
- *
- * Sends probes for several Samsung-specific service types and a
- * catch-all `ssdp:all`.  Responses are collected until the timeout
- * expires.  MAC addresses are resolved from the kernel ARP cache.
- *
- * SSDP multicast group: 239.255.255.250:1900
- */
 class SamsungTvDiscovery(
     private val context: Context,
     private val logger: AppLogger
@@ -39,24 +33,59 @@ class SamsungTvDiscovery(
         "upnp:rootdevice"
     )
 
-    /**
-     * Sends M-SEARCH probes and collects Samsung TV responses.
-     * Uses [MulticastSocket] joined to the SSDP group so Android's
-     * network stack delivers multicast replies reliably.
-     */
+    private val probePorts = listOf(8001, 8002)
+
     suspend fun discover(timeoutMs: Long = 6000L): List<DiscoveredTv> =
         withContext(Dispatchers.IO) {
-            logger.i("Disc", "Starting SSDP discovery (timeout=${timeoutMs}ms)")
+            logger.i("Disc", "Starting discovery (timeout=${timeoutMs}ms)")
+
+            // 1) Try SSDP
+            val ssdpResults = ssdpDiscover(timeoutMs)
+            if (ssdpResults.isNotEmpty()) {
+                logger.i("Disc", "SSDP found ${ssdpResults.size} TV(s)")
+                return@withContext ssdpResults
+            }
+
+            // 2) Fallback: ARP cache
+            val arpResults = scanArpOnly()
+            if (arpResults.isNotEmpty()) {
+                logger.i("Disc", "ARP found ${arpResults.size} device(s) — probing ports")
+                val confirmed = arpResults.filter { isTvPortOpen(it.ip) }
+                if (confirmed.isNotEmpty()) {
+                    return@withContext confirmed.map { it.copy(modelName = "Samsung TV (ARP)") }
+                }
+            }
+
+            // 3) Last resort: probe subnet ports
+            logger.i("Disc", "SSDP + ARP found nothing — probing subnet ports")
+            val probed = probeSubnet()
+            logger.i("Disc", "Probe found ${probed.size} TV(s)")
+            return@withContext probed
+        }
+
+    // ── SSDP (MulticastSocket, fixed for Android 14+) ──────────
+
+    private suspend fun ssdpDiscover(timeoutMs: Long): List<DiscoveredTv> =
+        withContext(Dispatchers.IO) {
+            logger.i("Disc", "SSDP discovery (timeout=${timeoutMs}ms)")
             val results = mutableMapOf<String, DiscoveredTv>()
             val multicastLock = acquireMulticastLock()
             val group = InetAddress.getByName("239.255.255.250")
+            val wifiIface = findWifiInterface()
+
+            if (wifiIface == null) {
+                logger.w("Disc", "No WiFi interface found — skipping SSDP")
+                multicastLock?.release()
+                return@withContext emptyList()
+            }
 
             try {
                 MulticastSocket().use { socket ->
                     socket.soTimeout = timeoutMs.toInt()
-                    socket.joinGroup(group)
                     socket.timeToLive = 4
                     socket.reuseAddress = true
+                    socket.networkInterface = wifiIface
+                    socket.joinGroup(group, wifiIface)
 
                     for (st in targetStList) {
                         sendSsdpProbe(socket, group, st)
@@ -64,7 +93,7 @@ class SamsungTvDiscovery(
 
                     collectResponses(socket, results, timeoutMs)
 
-                    try { socket.leaveGroup(group) } catch (_: Exception) { }
+                    try { socket.leaveGroup(group, wifiIface) } catch (_: Exception) { }
                 }
             } catch (e: Exception) {
                 logger.w("Disc", "SSDP failed: ${e.localizedMessage ?: e::class.simpleName}")
@@ -72,18 +101,50 @@ class SamsungTvDiscovery(
                 multicastLock?.release()
             }
 
-            val tvs = results.values.map { tv ->
+            results.values.map { tv ->
                 if (tv.mac == null) tv.copy(mac = macFromArpCache(tv.ip)) else tv
             }
-            logger.i("Disc", "Discovery found ${tvs.size} TV(s)")
-            tvs
         }
 
-    /**
-     * Fallback scan that tries to resolve MACs from the ARP cache
-     * without sending any network probes.  Useful when SSDP is
-     * blocked (e.g. guest Wi-Fi, VPN).
-     */
+    // ── Subnet port probing ────────────────────────────────────
+
+    private suspend fun probeSubnet(): List<DiscoveredTv> =
+        withContext(Dispatchers.IO) {
+            val baseIp = getLocalIpPrefix() ?: return@withContext emptyList()
+            logger.i("Disc", "Probing subnet $baseIp.0/24 on ports ${probePorts.joinToString(",")}")
+
+            val found = mutableListOf<DiscoveredTv>()
+            for (lastOctet in 1..254) {
+                val ip = "$baseIp.$lastOctet"
+                for (port in probePorts) {
+                    if (isPortOpen(ip, port, 150)) {
+                        logger.i("Disc", "Port $port open on $ip")
+                        val mac = macFromArpCache(ip)
+                        found.add(DiscoveredTv(ip = ip, mac = mac, modelName = null, locationUrl = null))
+                        break
+                    }
+                }
+            }
+            found
+        }
+
+    private fun isTvPortOpen(ip: String): Boolean =
+        probePorts.any { isPortOpen(ip, it, 200) }
+
+    private fun isPortOpen(ip: String, port: Int, timeoutMs: Int): Boolean {
+        return try {
+            Socket().use { sock ->
+                sock.connect(InetSocketAddress(ip, port), timeoutMs)
+                sock.close()
+                true
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    // ── ARP-only scan ──────────────────────────────────────────
+
     suspend fun scanArpOnly(): List<DiscoveredTv> = withContext(Dispatchers.IO) {
         logger.i("Disc", "ARP-only scan")
         val results = mutableListOf<DiscoveredTv>()
@@ -105,7 +166,33 @@ class SamsungTvDiscovery(
         results
     }
 
-    // ── Private helpers ───────────────────────────────────────
+    // ── Network helpers ────────────────────────────────────────
+
+    private fun getLocalIpPrefix(): String? {
+        return try {
+            val wifi = context.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+            val dhcp = wifi?.dhcpInfo ?: return null
+            val ip = dhcp.ipAddress
+            val mask = dhcp.netmask
+            if (ip == 0 || mask == 0) return null
+            val network = ip and mask
+            val a = network shr 24 and 0xFF
+            val b = network shr 16 and 0xFF
+            val c = network shr 8 and 0xFF
+            "$a.$b.$c"
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun findWifiInterface(): NetworkInterface? {
+        return try {
+            NetworkInterface.getNetworkInterfaces()?.asSequence()
+                ?.find { it.isUp && !it.isLoopback && it.name.startsWith("wlan") }
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     private fun acquireMulticastLock(): WifiManager.MulticastLock? {
         return try {
@@ -118,6 +205,8 @@ class SamsungTvDiscovery(
             null
         }
     }
+
+    // ── SSDP helpers ───────────────────────────────────────────
 
     private fun sendSsdpProbe(
         socket: MulticastSocket,
@@ -178,7 +267,6 @@ class SamsungTvDiscovery(
                     ?.substringAfter(":")
                     ?.trim()
 
-                // Accept any device with Samsung in ST, SERVER, or USN
                 val isSamsung = listOfNotNull(st, server, usn)
                     .any { it.contains("samsung", ignoreCase = true) }
 
@@ -216,7 +304,6 @@ class SamsungTvDiscovery(
         }
     }
 
-    /** Crude model-name extraction from the SERVER header. */
     private fun extractModel(server: String): String? {
         val candidates = listOf("UN", "UE", "QN", "QE", "LS", "UA")
         return candidates.firstOrNull { server.contains(it) }
@@ -227,3 +314,4 @@ class SamsungTvDiscovery(
             }
     }
 }
+
