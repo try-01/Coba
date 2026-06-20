@@ -53,14 +53,13 @@ class RemoteViewModel(
         // Observe connection state from the engine
         viewModelScope.launch {
             tvManager.connectionState.collect { state ->
+                val shouldShow = state is TvConnectionState.Idle ||
+                        state is TvConnectionState.Disconnected ||
+                        state is TvConnectionState.Error
                 _uiState.update {
-                    it.copy(
-                        connectionState = state,
-                        showConnectionSheet = state is TvConnectionState.Idle ||
-                                state is TvConnectionState.Disconnected ||
-                                state is TvConnectionState.Error
-                    )
+                    it.copy(connectionState = state, showConnectionSheet = shouldShow)
                 }
+                if (shouldShow) startDiscovery()
             }
         }
 
@@ -95,6 +94,7 @@ class RemoteViewModel(
     // ── Connection actions ───────────────────────────────────
 
     fun startDiscovery() {
+        if (_uiState.value.isDiscovering) return
         _uiState.update { it.copy(isDiscovering = true) }
         viewModelScope.launch {
             try {
