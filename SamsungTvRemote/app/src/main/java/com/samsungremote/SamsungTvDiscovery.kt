@@ -85,7 +85,8 @@ class SamsungTvDiscovery(
                     socket.timeToLive = 4
                     socket.reuseAddress = true
                     socket.networkInterface = wifiIface
-                    socket.joinGroup(group, wifiIface)
+                    val groupAddr = InetSocketAddress(group, 1900)
+                    socket.joinGroup(groupAddr, wifiIface)
 
                     for (st in targetStList) {
                         sendSsdpProbe(socket, group, st)
@@ -93,7 +94,7 @@ class SamsungTvDiscovery(
 
                     collectResponses(socket, results, timeoutMs)
 
-                    try { socket.leaveGroup(group, wifiIface) } catch (_: Exception) { }
+                    try { socket.leaveGroup(groupAddr, wifiIface) } catch (_: Exception) { }
                 }
             } catch (e: Exception) {
                 logger.w("Disc", "SSDP failed: ${e.localizedMessage ?: e::class.simpleName}")
