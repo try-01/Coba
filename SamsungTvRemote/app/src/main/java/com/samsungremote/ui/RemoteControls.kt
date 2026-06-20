@@ -255,33 +255,33 @@ fun NumpadPage(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            NumpadButton("1", onClick = { onKey(SamsungRemoteKey.KEY_1) }, haptic = hapticEnabled)
-            NumpadButton("2", onClick = { onKey(SamsungRemoteKey.KEY_2) }, haptic = hapticEnabled)
-            NumpadButton("3", onClick = { onKey(SamsungRemoteKey.KEY_3) }, haptic = hapticEnabled)
+            NumpadButton("1", onClick = { onKey(SamsungRemoteKey.KEY_1) }, modifier = Modifier.weight(1f), haptic = hapticEnabled)
+            NumpadButton("2", onClick = { onKey(SamsungRemoteKey.KEY_2) }, modifier = Modifier.weight(1f), haptic = hapticEnabled)
+            NumpadButton("3", onClick = { onKey(SamsungRemoteKey.KEY_3) }, modifier = Modifier.weight(1f), haptic = hapticEnabled)
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            NumpadButton("4", onClick = { onKey(SamsungRemoteKey.KEY_4) }, haptic = hapticEnabled)
-            NumpadButton("5", onClick = { onKey(SamsungRemoteKey.KEY_5) }, haptic = hapticEnabled)
-            NumpadButton("6", onClick = { onKey(SamsungRemoteKey.KEY_6) }, haptic = hapticEnabled)
+            NumpadButton("4", onClick = { onKey(SamsungRemoteKey.KEY_4) }, modifier = Modifier.weight(1f), haptic = hapticEnabled)
+            NumpadButton("5", onClick = { onKey(SamsungRemoteKey.KEY_5) }, modifier = Modifier.weight(1f), haptic = hapticEnabled)
+            NumpadButton("6", onClick = { onKey(SamsungRemoteKey.KEY_6) }, modifier = Modifier.weight(1f), haptic = hapticEnabled)
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            NumpadButton("7", onClick = { onKey(SamsungRemoteKey.KEY_7) }, haptic = hapticEnabled)
-            NumpadButton("8", onClick = { onKey(SamsungRemoteKey.KEY_8) }, haptic = hapticEnabled)
-            NumpadButton("9", onClick = { onKey(SamsungRemoteKey.KEY_9) }, haptic = hapticEnabled)
+            NumpadButton("7", onClick = { onKey(SamsungRemoteKey.KEY_7) }, modifier = Modifier.weight(1f), haptic = hapticEnabled)
+            NumpadButton("8", onClick = { onKey(SamsungRemoteKey.KEY_8) }, modifier = Modifier.weight(1f), haptic = hapticEnabled)
+            NumpadButton("9", onClick = { onKey(SamsungRemoteKey.KEY_9) }, modifier = Modifier.weight(1f), haptic = hapticEnabled)
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            NumpadButton("↶", onClick = { onKey(SamsungRemoteKey.PRECH) }, haptic = hapticEnabled)
-            NumpadButton("0", onClick = { onKey(SamsungRemoteKey.KEY_0) }, haptic = hapticEnabled)
-            NumpadButton("100+", onClick = { onKey(SamsungRemoteKey.PLUS100) }, haptic = hapticEnabled)
+            NumpadButton("↶", onClick = { onKey(SamsungRemoteKey.PRECH) }, modifier = Modifier.weight(1f), haptic = hapticEnabled)
+            NumpadButton("0", onClick = { onKey(SamsungRemoteKey.KEY_0) }, modifier = Modifier.weight(1f), haptic = hapticEnabled)
+            NumpadButton("100+", onClick = { onKey(SamsungRemoteKey.PLUS100) }, modifier = Modifier.weight(1f), haptic = hapticEnabled)
         }
 
         Spacer(Modifier.height(4.dp))
@@ -482,19 +482,19 @@ fun SmartPage(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            AppTile("Netflix", "N", Color(0xFF7A0C0C))
-            AppTile("YouTube", "▶", Color(0xFF6A0C0C))
-            AppTile("Prime", "P", Color(0xFF0C2E4A))
-            AppTile("Disney+", "D+", Color(0xFF081F3D))
+            AppTile("Netflix", "N", Color(0xFF7A0C0C), modifier = Modifier.weight(1f))
+            AppTile("YouTube", "▶", Color(0xFF6A0C0C), modifier = Modifier.weight(1f))
+            AppTile("Prime", "P", Color(0xFF0C2E4A), modifier = Modifier.weight(1f))
+            AppTile("Disney+", "D+", Color(0xFF081F3D), modifier = Modifier.weight(1f))
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            AppTile("Spotify", "S", Color(0xFF0A4A28))
-            AppTile("Browser", "◎", Color(0xFF163850))
-            AppTile("SmartTh.", "⌂", Color(0xFF0E2D5A))
-            AppTile("BBC iPlayer", "iP", Color(0xFF2A1010))
+            AppTile("Spotify", "S", Color(0xFF0A4A28), modifier = Modifier.weight(1f))
+            AppTile("Browser", "◎", Color(0xFF163850), modifier = Modifier.weight(1f))
+            AppTile("SmartTh.", "⌂", Color(0xFF0E2D5A), modifier = Modifier.weight(1f))
+            AppTile("BBC iPlayer", "iP", Color(0xFF2A1010), modifier = Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(8.dp))
@@ -535,12 +535,13 @@ private fun SectionLabel(text: String) {
 private fun NumpadButton(
     label: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     haptic: Boolean = true
 ) {
     ButtonPresets.numpad(
         digit = label,
         onClick = onClick,
-        modifier = Modifier.weight(1f),
+        modifier = modifier,
         haptic = haptic
     )
 }
@@ -722,11 +723,11 @@ private fun DPad(
 private fun AppTile(
     name: String,
     mono: String,
-    bg: Color
+    bg: Color,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
-            .weight(1f)
+        modifier = modifier
             .height(66.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(RemoteBrushes.glass)
