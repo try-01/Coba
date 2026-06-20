@@ -93,12 +93,12 @@ fun NavigationPage(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             ButtonPresets.power(
-                onClick = { onKey(SamsungRemoteKey.KEY_POWER) },
+                onClick = { onKey(SamsungRemoteKey.POWER) },
                 modifier = Modifier.weight(1f),
                 haptic = hapticEnabled
             )
             ButtonPresets.action(
-                onClick = { onKey(SamsungRemoteKey.KEY_SOURCE) },
+                onClick = { onKey(SamsungRemoteKey.SOURCE) },
                 modifier = Modifier.weight(1f),
                 icon = Icons.Filled.Cast,
                 label = "Source",
@@ -106,7 +106,7 @@ fun NavigationPage(
                 haptic = hapticEnabled
             )
             ButtonPresets.action(
-                onClick = { onKey(SamsungRemoteKey.KEY_MENU) },
+                onClick = { onKey(SamsungRemoteKey.MENU) },
                 modifier = Modifier.weight(1f),
                 icon = Icons.Filled.Menu,
                 label = "Menu",
@@ -122,8 +122,8 @@ fun NavigationPage(
         ) {
             RockerGroup(
                 label = "VOL",
-                onUp = { onKey(SamsungRemoteKey.KEY_VOLUP) },
-                onDown = { onKey(SamsungRemoteKey.KEY_VOLDOWN) },
+                onUp = { onKey(SamsungRemoteKey.VOLUME_UP) },
+                onDown = { onKey(SamsungRemoteKey.VOLUME_DOWN) },
                 upIcon = Icons.AutoMirrored.Filled.VolumeUp,
                 downIcon = Icons.AutoMirrored.Filled.VolumeDown,
                 haptic = hapticEnabled,
@@ -131,8 +131,8 @@ fun NavigationPage(
             )
             RockerGroup(
                 label = "CH",
-                onUp = { onKey(SamsungRemoteKey.KEY_CHUP) },
-                onDown = { onKey(SamsungRemoteKey.KEY_CHDOWN) },
+                onUp = { onKey(SamsungRemoteKey.CHANNEL_UP) },
+                onDown = { onKey(SamsungRemoteKey.CHANNEL_DOWN) },
                 upIcon = Icons.Filled.KeyboardArrowUp,
                 downIcon = Icons.Filled.KeyboardArrowDown,
                 haptic = hapticEnabled,
@@ -146,11 +146,11 @@ fun NavigationPage(
             contentAlignment = Alignment.Center
         ) {
             DPad(
-                onUp = { onKey(SamsungRemoteKey.KEY_UP) },
-                onDown = { onKey(SamsungRemoteKey.KEY_DOWN) },
-                onLeft = { onKey(SamsungRemoteKey.KEY_LEFT) },
-                onRight = { onKey(SamsungRemoteKey.KEY_RIGHT) },
-                onCenter = { onKey(SamsungRemoteKey.KEY_ENTER) },
+                onUp = { onKey(SamsungRemoteKey.UP) },
+                onDown = { onKey(SamsungRemoteKey.DOWN) },
+                onLeft = { onKey(SamsungRemoteKey.LEFT) },
+                onRight = { onKey(SamsungRemoteKey.RIGHT) },
+                onCenter = { onKey(SamsungRemoteKey.ENTER) },
                 haptic = hapticEnabled
             )
         }
@@ -161,7 +161,7 @@ fun NavigationPage(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             ButtonPresets.action(
-                onClick = { onKey(SamsungRemoteKey.KEY_RETURN) },
+                onClick = { onKey(SamsungRemoteKey.BACK) },
                 modifier = Modifier.weight(1f),
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 label = "Back",
@@ -169,7 +169,7 @@ fun NavigationPage(
                 haptic = hapticEnabled
             )
             ButtonPresets.action(
-                onClick = { onKey(SamsungRemoteKey.KEY_HOME) },
+                onClick = { onKey(SamsungRemoteKey.HOME) },
                 modifier = Modifier.weight(1f),
                 icon = Icons.Filled.Home,
                 label = "Home",
@@ -177,7 +177,7 @@ fun NavigationPage(
                 haptic = hapticEnabled
             )
             ButtonPresets.action(
-                onClick = { onKey(SamsungRemoteKey.KEY_MUTE) },
+                onClick = { onKey(SamsungRemoteKey.MUTE) },
                 modifier = Modifier.weight(1f),
                 icon = Icons.AutoMirrored.Filled.VolumeOff,
                 label = "Mute",
@@ -185,7 +185,7 @@ fun NavigationPage(
                 haptic = hapticEnabled
             )
             ButtonPresets.action(
-                onClick = { onKey(SamsungRemoteKey.KEY_EXIT) },
+                onClick = { onKey(SamsungRemoteKey.EXIT) },
                 modifier = Modifier.weight(1f),
                 icon = Icons.AutoMirrored.Filled.ExitToApp,
                 label = "Exit",
@@ -200,27 +200,27 @@ fun NavigationPage(
             horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             ButtonPresets.media(
-                onClick = { onKey(SamsungRemoteKey.KEY_REWIND) },
+                onClick = { onKey(SamsungRemoteKey.REWIND) },
                 icon = Icons.Filled.FastRewind,
                 haptic = hapticEnabled
             )
             ButtonPresets.media(
-                onClick = { onKey(SamsungRemoteKey.KEY_PLAY) },
+                onClick = { onKey(SamsungRemoteKey.PLAY) },
                 icon = Icons.Filled.PlayArrow,
                 haptic = hapticEnabled
             )
             ButtonPresets.media(
-                onClick = { onKey(SamsungRemoteKey.KEY_PAUSE) },
+                onClick = { onKey(SamsungRemoteKey.PAUSE) },
                 icon = Icons.Filled.Pause,
                 haptic = hapticEnabled
             )
             ButtonPresets.media(
-                onClick = { onKey(SamsungRemoteKey.KEY_FF) },
+                onClick = { onKey(SamsungRemoteKey.FAST_FORWARD) },
                 icon = Icons.Filled.FastForward,
                 haptic = hapticEnabled
             )
             ButtonPresets.media(
-                onClick = { onKey(SamsungRemoteKey.KEY_STOP) },
+                onClick = { onKey(SamsungRemoteKey.STOP) },
                 icon = Icons.Filled.Stop,
                 haptic = hapticEnabled
             )
@@ -279,9 +279,9 @@ fun NumpadPage(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            NumpadButton("↶", onClick = { onKey(SamsungRemoteKey.KEY_PRECH) }, haptic = hapticEnabled)
+            NumpadButton("↶", onClick = { onKey(SamsungRemoteKey.PRECH) }, haptic = hapticEnabled)
             NumpadButton("0", onClick = { onKey(SamsungRemoteKey.KEY_0) }, haptic = hapticEnabled)
-            NumpadButton("100+", onClick = { onKey(SamsungRemoteKey.KEY_PLUS100) }, haptic = hapticEnabled)
+            NumpadButton("100+", onClick = { onKey(SamsungRemoteKey.PLUS100) }, haptic = hapticEnabled)
         }
 
         Spacer(Modifier.height(4.dp))
@@ -305,7 +305,7 @@ fun NumpadPage(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = {
-                    if (textInput.isNotBlank()) onKey(SamsungRemoteKey.KEY_ENTER)
+                    if (textInput.isNotBlank()) onKey(SamsungRemoteKey.ENTER)
                 }),
                 modifier = Modifier
                     .weight(1f)
@@ -382,7 +382,7 @@ fun SmartPage(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             ButtonPresets.action(
-                onClick = { onKey(SamsungRemoteKey.KEY_RETURN) },
+                onClick = { onKey(SamsungRemoteKey.BACK) },
                 modifier = Modifier.weight(1f),
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 label = "Back",
@@ -390,7 +390,7 @@ fun SmartPage(
                 haptic = hapticEnabled
             )
             ButtonPresets.action(
-                onClick = { onKey(SamsungRemoteKey.KEY_ENTER) },
+                onClick = { onKey(SamsungRemoteKey.ENTER) },
                 modifier = Modifier.weight(1f),
                 icon = Icons.Filled.TouchApp,
                 label = "Click",
@@ -398,7 +398,7 @@ fun SmartPage(
                 haptic = hapticEnabled
             )
             ButtonPresets.action(
-                onClick = { onKey(SamsungRemoteKey.KEY_KEYBOARD) },
+                onClick = { onKey(SamsungRemoteKey.KEYBOARD) },
                 modifier = Modifier.weight(1f),
                 icon = Icons.Filled.Keyboard,
                 label = "Keyboard",

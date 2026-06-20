@@ -65,6 +65,10 @@ enum class SamsungRemoteKey(val code: String) {
     MOUSE_LEFT_RELEASE("KEY_MOUSE_UP"),
     MOUSE_MOVE("KEY_MOUSE_MOVE"),
 
+    // ── Channel shortcuts ────────────────────────────────────
+    PRECH("KEY_PRECH"),
+    PLUS100("KEY_PLUS100"),
+
     // ── Text input ───────────────────────────────────────────
     KEYBOARD("KEY_KEYBOARD"),
     KEYBOARD_CAPS("KEY_CAPS"),

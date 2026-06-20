@@ -90,8 +90,8 @@ fun RemoteButton(
             .clip(shape)
             .drawWithContent {
                 drawContent()
-                val w = size.width
-                val h = size.height
+                val w = this.size.width
+                val h = this.size.height
                 if (isPressed && glowColor != Color.Transparent) {
                     drawRoundRect(
                         color = glowColor,
