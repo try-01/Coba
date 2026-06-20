@@ -96,7 +96,7 @@ fun ConnectionHeader(
                         color = RemoteColors.OnSurface,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
-                        maxLines = 1
+                        maxLines = if (connectionState is TvConnectionState.Error) 10 else 1
                     )
                     Text(
                         text = "Tap to change",

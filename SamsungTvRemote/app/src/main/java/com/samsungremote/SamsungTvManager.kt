@@ -1,6 +1,5 @@
 package com.samsungremote
 
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,7 +37,7 @@ class SamsungTvManager(
         private const val PORT_WSS = 8002
         private const val DEFAULT_REMOTE_NAME = "DroidArchitect"
         private const val REMOTE_NAME_PADDED_LENGTH = 17
-        private const val HANDSHAKE_TIMEOUT_MS = 15_000L
+        private const val HANDSHAKE_TIMEOUT_MS = 8_000L
         private const val PING_INTERVAL_SECONDS = 30L
     }
 
@@ -83,21 +82,28 @@ class SamsungTvManager(
         val resolvedToken = token ?: settings.getSavedToken()
         _connectionState.value = TvConnectionState.Connecting
 
-        val encodedName = URLEncoder.encode(
-            remoteName.padEnd(REMOTE_NAME_PADDED_LENGTH, '\u0000'),
-            "UTF-8"
-        )
-
         val tokenParam = if (resolvedToken != null) "&token=$resolvedToken" else ""
 
-        val urlsToTry = listOf(
-            "ws://$ip:$PORT_WS/api/v2/channels/samsung.remote.control?name=$encodedName$tokenParam",
-            "wss://$ip:$PORT_WSS/api/v2/channels/samsung.remote.control?name=$encodedName$tokenParam"
+        // Try several name formats — different firmware versions expect different encodings
+        val nameFormats = listOf(
+            remoteName.padEnd(REMOTE_NAME_PADDED_LENGTH, ' '),               // space-padded
+            """{"name":"$remoteName"}""",                                     // JSON object
+            remoteName                                                         // plain, no padding
         )
+        val encodedNames = nameFormats.map { URLEncoder.encode(it, "UTF-8") }
+
+        val urlsToTry = encodedNames.flatMap { encoded ->
+            listOf(
+                "ws://$ip:$PORT_WS/api/v2/channels/samsung.remote.control?name=$encoded$tokenParam",
+                "wss://$ip:$PORT_WSS/api/v2/channels/samsung.remote.control?name=$encoded$tokenParam"
+            )
+        }
 
         val errors = mutableListOf<String>()
 
         for (url in urlsToTry) {
+            handshakeAwaiter = null // discard any previous attempt's awaiter
+
             val awaiter = CompletableDeferred<Result<Unit>>()
             handshakeAwaiter = awaiter
 
@@ -114,14 +120,15 @@ class SamsungTvManager(
                 settings.saveCredentials(ip, mac, resolvedToken)
                 return
 
-            } catch (e: CancellationException) {
-                wsRef.getAndSet(null)?.close(1000, "Cancelled")
-                handshakeAwaiter = null
-                throw e
             } catch (e: Exception) {
                 wsRef.getAndSet(null)?.close(1000, "Fallback")
                 handshakeAwaiter = null
-                errors.add("${url.take(30)}… : ${e.localizedMessage ?: e::class.simpleName}")
+                val cause = if (e is kotlinx.coroutines.TimeoutCancellationException) {
+                    "Timeout"
+                } else {
+                    e.localizedMessage ?: e::class.simpleName
+                }
+                errors.add("${url.take(30)}… : $cause")
             }
         }
 
@@ -211,7 +218,7 @@ class SamsungTvManager(
         }
 
         override fun onClosed(ws: WebSocket, code: Int, reason: String) {
-            wsRef.compareAndSet(ws, null)
+            if (!wsRef.compareAndSet(ws, null)) return // stale callback from previous attempt
             if (handshakeAwaiter != null) return // connect() handles state during handshake
             _connectionState.update {
                 if (it is TvConnectionState.Connected) {
@@ -221,7 +228,7 @@ class SamsungTvManager(
         }
 
         override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
-            wsRef.compareAndSet(ws, null)
+            if (!wsRef.compareAndSet(ws, null)) return // stale callback from previous attempt
             val awaiter = handshakeAwaiter
             if (awaiter != null) {
                 awaiter.complete(Result.failure(t))
