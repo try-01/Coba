@@ -15,33 +15,35 @@ object WakeOnLanUtil {
     private const val MAGIC_PACKET_LENGTH = 102
     private const val WOl_PORT = 9
 
-    fun send(macAddress: String) {
+    fun send(macAddress: String, logger: AppLogger? = null) {
         val cleaned = macAddress
             .replace(":", "")
             .replace("-", "")
             .trim()
 
         if (cleaned.length != 12) {
-            throw IllegalArgumentException("Invalid MAC address length: expected 12 hex digits, got ${cleaned.length}")
+            val msg = "Invalid MAC address: expected 12 hex digits, got ${cleaned.length}"
+            logger?.e("WoL", msg)
+            throw IllegalArgumentException(msg)
         }
 
         val macBytes = cleaned.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
         val packet = ByteArray(MAGIC_PACKET_LENGTH)
 
-        // First 6 bytes: 0xFF
         for (i in 0 until 6) {
             packet[i] = 0xFF.toByte()
         }
-        // Remaining 96 bytes: MAC repeated 16 times
         for (i in 0 until 16) {
             System.arraycopy(macBytes, 0, packet, 6 + i * 6, 6)
         }
 
+        logger?.d("WoL", "Sending magic packet to ${cleaned.uppercase()}")
         DatagramSocket().use { socket ->
             socket.broadcast = true
             val address = InetAddress.getByName("255.255.255.255")
             val dp = DatagramPacket(packet, packet.size, address, WOl_PORT)
             socket.send(dp)
         }
+        logger?.i("WoL", "Magic packet sent to $macAddress")
     }
 }

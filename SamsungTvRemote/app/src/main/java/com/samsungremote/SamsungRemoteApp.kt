@@ -10,7 +10,16 @@ private val Application.dataStore: DataStore<Preferences> by preferencesDataStor
 )
 
 class SamsungRemoteApp : Application() {
+    lateinit var logger: AppLogger
+        private set
+
     val settingsDataStore: SettingsDataStore by lazy { SettingsDataStore(dataStore) }
-    val tvManager: SamsungTvManager by lazy { SamsungTvManager(settingsDataStore) }
-    val tvDiscovery: SamsungTvDiscovery by lazy { SamsungTvDiscovery(this) }
+    val tvManager: SamsungTvManager by lazy { SamsungTvManager(settingsDataStore, logger) }
+    val tvDiscovery: SamsungTvDiscovery by lazy { SamsungTvDiscovery(this, logger) }
+
+    override fun onCreate() {
+        super.onCreate()
+        logger = AppLogger.create(this)
+        logger.i("App", "App started — logs: ${filesDir}/logs/")
+    }
 }

@@ -41,7 +41,8 @@ data class RemoteUiState(
 class RemoteViewModel(
     private val tvManager: SamsungTvManager,
     private val discovery: SamsungTvDiscovery,
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    private val logger: AppLogger
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RemoteUiState())
@@ -51,9 +52,11 @@ class RemoteViewModel(
     val viewModelEvents = _events.receiveAsFlow()
 
     init {
-        // Observe connection state from the engine
+        logger.i("VM", "ViewModel initialized")
+
         viewModelScope.launch {
             tvManager.connectionState.collect { state ->
+                logger.d("VM", "connectionState: ${state::class.simpleName}")
                 val shouldShow = state is TvConnectionState.Idle ||
                         state is TvConnectionState.Disconnected ||
                         state is TvConnectionState.Error
@@ -64,7 +67,6 @@ class RemoteViewModel(
             }
         }
 
-        // Observe persisted settings
         viewModelScope.launch {
             settingsDataStore.hapticEnabled.collect { enabled ->
                 _uiState.update { it.copy(hapticEnabled = enabled) }
@@ -81,7 +83,6 @@ class RemoteViewModel(
             }
         }
 
-        // Pre-fill manual fields from saved credentials
         viewModelScope.launch {
             _uiState.update {
                 it.copy(
@@ -98,32 +99,38 @@ class RemoteViewModel(
 
     fun startDiscovery() {
         discoveryJob?.cancel()
+        logger.i("VM", "Starting discovery")
         _uiState.update { it.copy(isDiscovering = true) }
         discoveryJob = viewModelScope.launch {
             try {
                 val tvs = discovery.discover()
+                logger.i("VM", "Discovery returned ${tvs.size} TV(s)")
                 _uiState.update { it.copy(discoveredTvs = tvs, isDiscovering = false) }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.w("VM", "Discovery failed: ${e.localizedMessage ?: e::class.simpleName}")
                 _uiState.update { it.copy(isDiscovering = false) }
             }
         }
     }
 
     fun connectToTv(ip: String, mac: String, token: String? = null) {
+        logger.i("VM", "connectToTv ip=$ip mac=$mac hasToken=${token != null}")
         viewModelScope.launch {
             try {
                 tvManager.connect(ip, mac, token)
-            } catch (_: Exception) {
-                // Error surfaced via tvManager.connectionState → TvConnectionState.Error
+            } catch (e: Exception) {
+                logger.w("VM", "connectToTv failed: ${e.localizedMessage?.take(100)}")
             }
         }
     }
 
     fun disconnect() {
+        logger.i("VM", "Disconnect requested")
         tvManager.disconnect()
     }
 
     fun setShowConnectionSheet(show: Boolean) {
+        logger.d("VM", "showConnectionSheet=$show")
         _uiState.update { it.copy(showConnectionSheet = show) }
         if (show) startDiscovery()
     }
@@ -131,29 +138,34 @@ class RemoteViewModel(
     // ── Remote control actions ───────────────────────────────
 
     fun sendKey(key: SamsungRemoteKey) {
+        logger.d("VM", "sendKey: ${key.code}")
         viewModelScope.launch {
             try {
                 tvManager.sendKey(key)
-            } catch (_: Exception) {
-                // Error surfaced via connectionState
+            } catch (e: Exception) {
+                logger.w("VM", "sendKey ${key.code} failed: ${e.localizedMessage?.take(60)}")
             }
         }
     }
 
     fun sendText(text: String) {
+        logger.d("VM", "sendText: \"${text.take(50)}\"")
         viewModelScope.launch {
             try {
                 tvManager.sendText(text)
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                logger.w("VM", "sendText failed: ${e.localizedMessage?.take(60)}")
+            }
         }
     }
 
     fun wakeOnLan(mac: String) {
+        logger.i("VM", "WoL packet to $mac")
         viewModelScope.launch {
             try {
-                WakeOnLanUtil.send(mac)
-            } catch (_: Exception) {
-                // WoL is best-effort; ignore send failures silently
+                WakeOnLanUtil.send(mac, logger)
+            } catch (e: Exception) {
+                logger.w("VM", "WoL failed: ${e.localizedMessage?.take(60)}")
             }
         }
     }
@@ -186,20 +198,20 @@ class RemoteViewModel(
 
     fun toggleService() {
         val current = _uiState.value.serviceEnabled
+        logger.i("VM", "toggleService: ${!current}")
         viewModelScope.launch {
             settingsDataStore.setServiceEnabled(!current)
             if (!current) disconnect() else startDiscovery()
         }
     }
 
-    // ── Server / Exit ────────────────────────────────────────
-
-    fun shutdownServer() {
-        disconnect()
-    }
+    // ── Exit ─────────────────────────────────────────────────
 
     fun exitApp() {
-        tvManager.shutdown()
+        logger.i("VM", "Exit App requested")
+        disconnect()
+        logger.i("VM", "Closing logger")
+        logger.close()
         _events.trySend(ViewModelEvent.ExitApp)
     }
 }
@@ -214,7 +226,8 @@ class RemoteViewModelFactory(
         return RemoteViewModel(
             tvManager = app.tvManager,
             discovery = app.tvDiscovery,
-            settingsDataStore = app.settingsDataStore
+            settingsDataStore = app.settingsDataStore,
+            logger = app.logger
         ) as T
     }
 }

@@ -20,7 +20,10 @@ import kotlinx.coroutines.withContext
  *
  * SSDP multicast group: 239.255.255.250:1900
  */
-class SamsungTvDiscovery(private val context: Context) {
+class SamsungTvDiscovery(
+    private val context: Context,
+    private val logger: AppLogger
+) {
 
     data class DiscoveredTv(
         val ip: String,
@@ -43,6 +46,7 @@ class SamsungTvDiscovery(private val context: Context) {
      */
     suspend fun discover(timeoutMs: Long = 6000L): List<DiscoveredTv> =
         withContext(Dispatchers.IO) {
+            logger.i("Disc", "Starting SSDP discovery (timeout=${timeoutMs}ms)")
             val results = mutableMapOf<String, DiscoveredTv>()
             val multicastLock = acquireMulticastLock()
             val group = InetAddress.getByName("239.255.255.250")
@@ -62,15 +66,17 @@ class SamsungTvDiscovery(private val context: Context) {
 
                     try { socket.leaveGroup(group) } catch (_: Exception) { }
                 }
-            } catch (_: Exception) {
-                // Non-fatal — fall back to ARP-based scan
+            } catch (e: Exception) {
+                logger.w("Disc", "SSDP failed: ${e.localizedMessage ?: e::class.simpleName}")
             } finally {
                 multicastLock?.release()
             }
 
-            results.values.map { tv ->
+            val tvs = results.values.map { tv ->
                 if (tv.mac == null) tv.copy(mac = macFromArpCache(tv.ip)) else tv
             }
+            logger.i("Disc", "Discovery found ${tvs.size} TV(s)")
+            tvs
         }
 
     /**
@@ -79,6 +85,7 @@ class SamsungTvDiscovery(private val context: Context) {
      * blocked (e.g. guest Wi-Fi, VPN).
      */
     suspend fun scanArpOnly(): List<DiscoveredTv> = withContext(Dispatchers.IO) {
+        logger.i("Disc", "ARP-only scan")
         val results = mutableListOf<DiscoveredTv>()
         try {
             BufferedReader(FileReader("/proc/net/arp")).use { reader ->
@@ -91,7 +98,10 @@ class SamsungTvDiscovery(private val context: Context) {
                     }
                 }
             }
-        } catch (_: Exception) { }
+            logger.i("Disc", "ARP scan found ${results.size} device(s)")
+        } catch (e: Exception) {
+            logger.w("Disc", "ARP scan failed: ${e.localizedMessage}")
+        }
         results
     }
 
@@ -173,10 +183,12 @@ class SamsungTvDiscovery(private val context: Context) {
                     .any { it.contains("samsung", ignoreCase = true) }
 
                 if (isSamsung) {
+                    val model = server?.let { extractModel(it) }
+                    logger.d("Disc", "SSDP response from $ip (model=$model)")
                     results[ip] = DiscoveredTv(
                         ip = ip,
                         mac = null,
-                        modelName = server?.let { extractModel(it) },
+                        modelName = model,
                         locationUrl = location
                     )
                 }
@@ -188,7 +200,7 @@ class SamsungTvDiscovery(private val context: Context) {
 
     private fun macFromArpCache(ip: String): String? {
         return try {
-            BufferedReader(FileReader("/proc/net/arp")).use { reader ->
+            val mac = BufferedReader(FileReader("/proc/net/arp")).use { reader ->
                 reader.lineSequence()
                     .drop(1)
                     .firstOrNull { it.trimStart().startsWith(ip) }
@@ -196,7 +208,10 @@ class SamsungTvDiscovery(private val context: Context) {
                     ?.getOrNull(3)
                     ?.takeIf { it.length == 17 }
             }
-        } catch (_: Exception) {
+            if (mac != null) logger.d("Disc", "ARP cache resolved $ip → $mac")
+            mac
+        } catch (e: Exception) {
+            logger.w("Disc", "ARP read failed for $ip: ${e.localizedMessage}")
             null
         }
     }

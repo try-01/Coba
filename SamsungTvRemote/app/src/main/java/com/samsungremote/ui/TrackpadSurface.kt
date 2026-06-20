@@ -45,7 +45,7 @@ fun TrackpadSurface(
                     )
                 )
             )
-            .border(1.dp, RemoteColors.ButtonMid, RoundedCornerShape(16.dp))
+            .border(1.dp, RemoteColors.KeyBorder, RoundedCornerShape(16.dp))
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { onClick() },

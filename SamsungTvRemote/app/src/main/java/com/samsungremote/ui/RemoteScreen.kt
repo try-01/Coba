@@ -3,16 +3,20 @@ package com.samsungremote.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.Gamepad
@@ -23,12 +27,16 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,17 +56,114 @@ fun RemoteScreen(
         pageCount = { 3 }
     )
 
-    LaunchedEffect(pagerState.currentPage) {
-        viewModel.setSelectedTab(pagerState.currentPage)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .drawBehind {
+                drawRect(RemoteColors.BackgroundDeep)
+                holographicGrid()
+                vignetteGradients()
+            }
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            ConnectionHeader(
+                connectionState = uiState.connectionState,
+                showConnectionSheet = uiState.showConnectionSheet,
+                onToggleConnectionSheet = { viewModel.setShowConnectionSheet(!uiState.showConnectionSheet) },
+                onWakeOnLan = {
+                    val mac = uiState.manualMac
+                    if (mac.isNotBlank()) viewModel.wakeOnLan(mac)
+                },
+                onSettingsClick = { viewModel.setShowSettings(true) }
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
+                    .drawBehind {
+                        drawRoundRect(
+                            color = Color.Black.copy(alpha = 0.3f),
+                            cornerRadius = CornerRadius(22.dp.toPx()),
+                            style = Stroke(width = 1.dp.toPx())
+                        )
+                        drawRect(
+                            brush = RemoteBrushes.panelBg,
+                            size = Size(size.width, size.height)
+                        )
+                        drawRoundRect(
+                            color = RemoteColors.PanelBorder,
+                            cornerRadius = CornerRadius(22.dp.toPx()),
+                            style = Stroke(width = 1.dp.toPx())
+                        )
+                        drawLine(
+                            color = RemoteColors.NeonCyan.copy(alpha = 0.4f),
+                            start = Offset(size.width * 0.3f, 0f),
+                            end = Offset(size.width * 0.7f, 0f),
+                            strokeWidth = 2.dp.toPx()
+                        )
+                    }
+                    .padding(top = 10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(3) { i ->
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 3.dp)
+                                .size(width = if (i == pagerState.currentPage) 20.dp else 4.dp, height = 4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(
+                                    if (i == pagerState.currentPage) RemoteColors.NeonCyan
+                                    else RemoteColors.OnSurfaceDim.copy(alpha = 0.3f)
+                                )
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 4.dp)
+                ) { page ->
+                    when (page) {
+                        0 -> NavigationPage(
+                            onKey = viewModel::sendKey,
+                            buttonScale = uiState.buttonScale,
+                            hapticEnabled = uiState.hapticEnabled
+                        )
+                        1 -> NumpadPage(
+                            onKey = viewModel::sendKey,
+                            onSendText = viewModel::sendText,
+                            buttonScale = uiState.buttonScale,
+                            hapticEnabled = uiState.hapticEnabled
+                        )
+                        2 -> SmartPage(
+                            onKey = viewModel::sendKey,
+                            onSendText = viewModel::sendText,
+                            buttonScale = uiState.buttonScale,
+                            hapticEnabled = uiState.hapticEnabled
+                        )
+                    }
+                }
+            }
+        }
     }
 
-    // ── Connection sheet ──────────────────────────────────────
     if (uiState.showConnectionSheet) {
         ModalBottomSheet(
             onDismissRequest = { viewModel.setShowConnectionSheet(false) },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = RemoteColors.Surface,
-            shape = MaterialTheme.shapes.large
+            containerColor = RemoteColors.Panel,
+            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
         ) {
             ConnectionSheetContent(
                 connectionState = uiState.connectionState,
@@ -83,13 +188,12 @@ fun RemoteScreen(
         }
     }
 
-    // ── Settings sheet ─────────────────────────────────────────
     if (uiState.showSettings) {
         ModalBottomSheet(
             onDismissRequest = { viewModel.setShowSettings(false) },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = RemoteColors.Surface,
-            shape = MaterialTheme.shapes.large
+            containerColor = RemoteColors.Panel,
+            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
         ) {
             SettingsSheetContent(
                 connectionState = uiState.connectionState,
@@ -100,150 +204,8 @@ fun RemoteScreen(
                 onScaleChange = viewModel::setButtonScale,
                 onServiceToggle = viewModel::toggleService,
                 onDisconnect = viewModel::disconnect,
-                onShutdownServer = viewModel::shutdownServer,
                 onExitApp = viewModel::exitApp
             )
         }
     }
-
-    // ── Main scaffold ─────────────────────────────────────────
-    androidx.compose.foundation.layout.Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(RemoteBrushes.background)
-    ) {
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-        topBar = {
-            ConnectionHeader(
-                connectionState = uiState.connectionState,
-                showConnectionSheet = uiState.showConnectionSheet,
-                onToggleConnectionSheet = {
-                    viewModel.setShowConnectionSheet(!uiState.showConnectionSheet)
-                },
-                onWakeOnLan = {
-                    val mac = uiState.manualMac
-                    if (mac.isNotBlank()) viewModel.wakeOnLan(mac)
-                }
-            )
-        },
-        bottomBar = {
-            BottomBar(
-                selectedTab = pagerState.currentPage,
-                onTabChange = viewModel::setSelectedTab,
-                onSettingsClick = { viewModel.setShowSettings(true) },
-                connectionState = uiState.connectionState
-            )
-        }
-    ) { padding ->
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) { page ->
-            when (page) {
-                0 -> NavigationPage(
-                    onKey = viewModel::sendKey,
-                    buttonScale = uiState.buttonScale,
-                    hapticEnabled = uiState.hapticEnabled
-                )
-                1 -> NumpadPage(
-                    onKey = viewModel::sendKey,
-                    buttonScale = uiState.buttonScale,
-                    hapticEnabled = uiState.hapticEnabled
-                )
-                2 -> SmartPage(
-                    onKey = viewModel::sendKey,
-                    onSendText = viewModel::sendText,
-                    buttonScale = uiState.buttonScale,
-                    hapticEnabled = uiState.hapticEnabled
-                )
-            }
-        }
-    }
-    }
-}
-
-// ── Bottom navigation bar ─────────────────────────────────────
-
-@Composable
-private fun BottomBar(
-    selectedTab: Int,
-    onTabChange: (Int) -> Unit,
-    onSettingsClick: () -> Unit,
-    connectionState: TvConnectionState
-) {
-    val connected = connectionState is TvConnectionState.Connected
-    val accent = if (connected) RemoteColors.NeonGreen else RemoteColors.NeonCyan
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .background(RemoteColors.Surface)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TabDot(
-                icon = Icons.Filled.Gamepad,
-                selected = selectedTab == 0,
-                accent = accent,
-                onClick = { onTabChange(0) }
-            )
-            TabDot(
-                icon = Icons.Filled.Dialpad,
-                selected = selectedTab == 1,
-                accent = accent,
-                onClick = { onTabChange(1) }
-            )
-            TabDot(
-                icon = Icons.Filled.SmartToy,
-                selected = selectedTab == 2,
-                accent = accent,
-                onClick = { onTabChange(2) }
-            )
-        }
-
-        RemoteButton(
-            onClick = onSettingsClick,
-            icon = Icons.Filled.Settings,
-            size = 36.dp,
-            shape = CircleShape,
-            tint = RemoteColors.OnSurfaceDim,
-            contentDescription = "Settings",
-            hapticEnabled = false
-        )
-    }
-}
-
-@Composable
-private fun TabDot(
-    icon: ImageVector,
-    selected: Boolean,
-    accent: Color,
-    onClick: () -> Unit
-) {
-    val bg by animateColorAsState(
-        targetValue = if (selected) accent.copy(alpha = 0.15f) else Color.Transparent,
-        label = "tabBg"
-    )
-    val tint by animateColorAsState(
-        targetValue = if (selected) accent else RemoteColors.OnSurfaceDim,
-        label = "tabTint"
-    )
-
-    RemoteButton(
-        onClick = onClick,
-        icon = icon,
-        size = 40.dp,
-        shape = CircleShape,
-        tint = tint,
-        backgroundBrush = Brush.linearGradient(listOf(bg, bg)),
-        contentDescription = if (selected) "Selected tab" else null,
-        hapticEnabled = false
-    )
 }

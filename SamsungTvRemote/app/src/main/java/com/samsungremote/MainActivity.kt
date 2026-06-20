@@ -18,17 +18,22 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val app = application as SamsungRemoteApp
+        val logger = app.logger
+        logger.i("Act", "onCreate (savedInstanceState=${savedInstanceState != null})")
 
         setContent {
             val viewModel: RemoteViewModel = viewModel(
                 factory = RemoteViewModelFactory(app)
             )
 
-            // Collect one-shot events (e.g. deep exit)
             androidx.compose.runtime.LaunchedEffect(Unit) {
                 viewModel.viewModelEvents.collect { event ->
                     when (event) {
-                        ViewModelEvent.ExitApp -> finishAndRemoveTask()
+                        ViewModelEvent.ExitApp -> {
+                            logger.i("Act", "ExitApp event — finishing task")
+                            finishAndRemoveTask()
+                            android.os.Process.killProcess(android.os.Process.myPid())
+                        }
                     }
                 }
             }
@@ -37,5 +42,11 @@ class MainActivity : ComponentActivity() {
                 RemoteScreen(viewModel = viewModel)
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        val logger = (application as SamsungRemoteApp).logger
+        logger.d("Act", "onDestroy")
     }
 }

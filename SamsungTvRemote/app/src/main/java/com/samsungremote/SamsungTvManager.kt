@@ -29,7 +29,8 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
 class SamsungTvManager(
-    private val settings: SettingsDataStore
+    private val settings: SettingsDataStore,
+    private val logger: AppLogger
 ) {
 
     companion object {
@@ -81,18 +82,19 @@ class SamsungTvManager(
     ) {
         val resolvedToken = token ?: settings.getSavedToken()
         _connectionState.value = TvConnectionState.Connecting
+        logger.i("TVMgr", "Connecting to $ip (mac=$mac, hasToken=${resolvedToken != null})")
 
         // Try several name formats — different firmware versions expect different encodings
         val nameFormats = listOf(
-            remoteName.padEnd(REMOTE_NAME_PADDED_LENGTH, ' '),               // space-padded
-            """{"name":"$remoteName"}""",                                     // JSON object
-            remoteName                                                         // plain, no padding
+            remoteName.padEnd(REMOTE_NAME_PADDED_LENGTH, ' '),
+            """{"name":"$remoteName"}""",
+            remoteName
         )
         val encodedNames = nameFormats.map { URLEncoder.encode(it, "UTF-8") }
 
         val tokenSuffixes = listOfNotNull(
-            "",                                                           // try without token (in case saved token is stale)
-            if (resolvedToken != null) "&token=$resolvedToken" else null  // with saved token
+            "",
+            if (resolvedToken != null) "&token=$resolvedToken" else null
         )
 
         val urlsToTry = encodedNames.flatMap { encoded ->
@@ -104,6 +106,8 @@ class SamsungTvManager(
             }
         }
 
+        logger.d("TVMgr", "Will try ${urlsToTry.size} URL combinations")
+
         val errors = mutableListOf<String>()
 
         for (url in urlsToTry) {
@@ -114,6 +118,7 @@ class SamsungTvManager(
 
             try {
                 val request = Request.Builder().url(url).build()
+                logger.d("TVMgr", "Trying $url")
                 val ws = httpClient.newWebSocket(request, createListener(ip, mac))
                 wsRef.set(ws)
 
@@ -122,6 +127,7 @@ class SamsungTvManager(
                     result.getOrThrow()
                 }
 
+                logger.i("TVMgr", "Connected via $url")
                 settings.saveCredentials(ip, mac, resolvedToken)
                 return
 
@@ -133,10 +139,12 @@ class SamsungTvManager(
                 } else {
                     e.localizedMessage ?: e::class.simpleName
                 }
+                logger.w("TVMgr", "Failed: ${url.take(50)}… → $cause")
                 errors.add("${url.take(30)}… : $cause")
             }
         }
 
+        logger.e("TVMgr", "All ${urlsToTry.size} attempts failed")
         val msg = "All connection attempts failed:\n${errors.joinToString("\n")}"
         val ex = IOException(msg)
         _connectionState.value = TvConnectionState.Error(ex)
@@ -146,6 +154,7 @@ class SamsungTvManager(
     // ── Disconnect ────────────────────────────────────────────
 
     fun disconnect() {
+        logger.i("TVMgr", "Disconnect requested")
         wsRef.getAndSet(null)?.close(1000, "Client disconnect")
         handshakeAwaiter?.complete(Result.failure(IllegalStateException("Disconnected")))
         handshakeAwaiter = null
@@ -157,13 +166,8 @@ class SamsungTvManager(
     }
 
     fun shutdown() {
-        wsRef.getAndSet(null)?.close(1000, "App shutdown")
-        handshakeAwaiter?.complete(Result.failure(IllegalStateException("Shutdown")))
-        handshakeAwaiter = null
-        scope.cancel()
-        httpClient.dispatcher.executorService.shutdown()
-        httpClient.connectionPool.evictAll()
-        _connectionState.value = TvConnectionState.Disconnected("Shutdown")
+        logger.i("TVMgr", "Shutdown (app exit)")
+        disconnect()
     }
 
     // ── Send commands ─────────────────────────────────────────
@@ -183,9 +187,11 @@ class SamsungTvManager(
         }
 
         val payload = json.encodeToString(JsonObject.serializer(), msg)
+        logger.d("TVMgr", "sendKey: ${key.code}")
         val sent = ws.send(payload)
 
         if (!sent) {
+            logger.e("TVMgr", "sendKey ${key.code} failed \u2014 connection lost")
             disconnect()
             throw java.io.IOException("WebSocket send returned false \u2014 probable connection loss")
         }
@@ -205,6 +211,7 @@ class SamsungTvManager(
         }
 
         val payload = json.encodeToString(JsonObject.serializer(), msg)
+        logger.d("TVMgr", "sendText: \"${text.take(50)}\"")
         ws.send(payload)
     }
 
@@ -212,19 +219,26 @@ class SamsungTvManager(
 
     private fun createListener(ip: String, mac: String) = object : WebSocketListener() {
 
-        override fun onOpen(ws: WebSocket, response: Response) { }
+        override fun onOpen(ws: WebSocket, response: Response) {
+            logger.d("TVMgr", "WS onOpen [$ip]")
+        }
 
         override fun onMessage(ws: WebSocket, text: String) {
             onWsMessage(text, ip, mac)
         }
 
         override fun onClosing(ws: WebSocket, code: Int, reason: String) {
+            logger.d("TVMgr", "WS onClosing [$ip] code=$code reason=$reason")
             ws.close(code, reason)
         }
 
         override fun onClosed(ws: WebSocket, code: Int, reason: String) {
-            if (!wsRef.compareAndSet(ws, null)) return // stale callback from previous attempt
-            if (handshakeAwaiter != null) return // connect() handles state during handshake
+            logger.d("TVMgr", "WS onClosed [$ip] code=$code reason=$reason")
+            if (!wsRef.compareAndSet(ws, null)) {
+                logger.d("TVMgr", "WS onClosed stale callback")
+                return
+            }
+            if (handshakeAwaiter != null) return
             _connectionState.update {
                 if (it is TvConnectionState.Connected) {
                     TvConnectionState.Disconnected(reason)
@@ -233,7 +247,11 @@ class SamsungTvManager(
         }
 
         override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
-            if (!wsRef.compareAndSet(ws, null)) return // stale callback from previous attempt
+            logger.e("TVMgr", "WS onFailure [$ip]: ${t.localizedMessage ?: t::class.simpleName}")
+            if (!wsRef.compareAndSet(ws, null)) {
+                logger.d("TVMgr", "WS onFailure stale callback")
+                return
+            }
             val awaiter = handshakeAwaiter
             if (awaiter != null) {
                 awaiter.complete(Result.failure(t))
@@ -258,8 +276,8 @@ class SamsungTvManager(
                         ?.jsonObject
                         ?.get("deviceName")?.jsonPrimitive?.content
 
-                    // If token is "null" as a string, treat it as no-token (first pairing)
                     val effectiveToken = token?.takeUnless { it == "null" || it.isBlank() }
+                    logger.i("TVMgr", "WS ms.channel.connect device=$deviceName token=${effectiveToken != null}")
 
                     if (effectiveToken != null) {
                         scope.launch {
@@ -276,12 +294,20 @@ class SamsungTvManager(
                     handshakeAwaiter = null
                 }
 
-                "ms.channel.ready" -> { }
+                "ms.channel.ready" -> {
+                    logger.d("TVMgr", "WS ms.channel.ready [$ip]")
+                }
 
-                "ms.remote.control" -> { }
+                "ms.remote.control" -> {
+                    logger.d("TVMgr", "WS ms.remote.control [$ip]")
+                }
 
-                else -> { }
+                else -> {
+                    logger.d("TVMgr", "WS unknown event [$ip]: ${event ?: "null"}")
+                }
             }
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            logger.w("TVMgr", "WS message parse error: ${e.localizedMessage}")
+        }
     }
 }
