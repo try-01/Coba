@@ -3,12 +3,8 @@ package com.example.samsungremote.ui.components
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.Icons.Default.Home
-import androidx.compose.material.icons.Icons.Default.PlayArrow
-import androidx.compose.material.icons.Icons.Default.Pause
-import androidx.compose.material.icons.Icons.Default.Stop
-import androidx.compose.material.icons.Icons.Default.VolumeUp
-import androidx.compose.material.icons.Icons.Default.VolumeDown
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.Default
 import androidx.compose.runtime.Composable
 
 @Composable

@@ -22,8 +22,7 @@ fun MainScreen(viewModel: MainViewModel) {
             onServiceToggle = { }
         )
         RemoteControlPager(
-            onCommand = { command -> viewModel.sendCommand(command) },
-            modifier = Modifier.weight(1f)
+            onCommand = { command -> viewModel.sendCommand(command) }
         )
     }
 }
