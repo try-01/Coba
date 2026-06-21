@@ -1,5 +1,6 @@
 package com.example.samsungremote.ui.components
 
+import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -10,7 +11,7 @@ fun RemoteControlPager(
     onCommand: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    androidx.compose.foundation.pager.HorizontalPager(
+    HorizontalPager(
         pageCount = 3,
         modifier = modifier,
         contentPadding = PaddingValues(horizontal = 32.dp)
