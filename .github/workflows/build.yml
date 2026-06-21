@@ -27,12 +27,11 @@ jobs:
       - name: Generate Gradle Wrapper
         run: |
           cd AndroidTvRemote
-          gradle wrapper --gradle-version=8.7
-          chmod +x ./gradlew
-          ./gradlew assembleDebug
+          chmod +x build.sh
+          ./build.sh
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: AndroidTvRemote-APK
-          path: app/build/outputs/apk/debug/*.apk
+          path: AndroidTvRemote/app/build/outputs/apk/debug/*.apk

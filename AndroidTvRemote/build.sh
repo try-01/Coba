@@ -6,22 +6,25 @@ cd "$(dirname "$0")"
 echo "Samsung TV Remote - Build Script"
 echo "================================"
 
-if [ -f "./gradlew" ]; then
-    chmod +x gradlew
-    echo "Building with Gradle wrapper..."
-    ./gradlew assembleDebug
-else
-    echo "ERROR: gradlew not found!"
-    echo ""
-    echo "To build this Android project:"
-    echo "  1. Initialize Gradle wrapper: gradle wrapper --gradle-version=8.7"
-    echo "  2. Or use Android Studio to open and build the project"
-    exit 1
+# Check and create gradlew
+if [ ! -f "./gradlew" ]; then
+    echo "Gradle wrapper not found. Attempting to initialize..."
+    
+    if command -v gradle &> /dev/null; then
+        gradle wrapper --gradle-version=8.7 --distribution-type=all
+    else
+        echo "ERROR: Gradle not installed!"
+        echo ""
+        echo "Install Gradle or use Android Studio:"
+        echo "  - Install: https://gradle.org/install/"
+        echo "  - Or open this project in Android Studio"
+        exit 1
+    fi
 fi
 
-if [ $? -eq 0 ]; then
-    echo "Build successful! APK location: app/build/outputs/apk/debug/app-debug.apk"
-else
-    echo "Build failed!"
-    exit 1
-fi
+chmod +x gradlew
+
+echo "Building APK..."
+./gradlew assembleDebug
+
+echo "Build completed! APK: app/build/outputs/apk/debug/app-debug.apk"
