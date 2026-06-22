@@ -75,6 +75,15 @@ fun RemoteScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(vertical = 8.dp)
             )
+            FilledIconButton(
+                onClick = { viewModel.connect() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Coba Lagi")
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
