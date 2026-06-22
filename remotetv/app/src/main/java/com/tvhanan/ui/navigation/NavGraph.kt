@@ -58,6 +58,11 @@ fun TvRemoteNavGraph(
         composable(Routes.MANUAL) {
             ManualConnectScreen(
                 onConnect = { device ->
+                    scope.launch {
+                        serviceLocator.preferences?.saveLastIp(device.ipAddress)
+                        serviceLocator.preferences?.saveLastPort(device.port.toString())
+                        device.macAddress?.let { serviceLocator.preferences?.saveMacAddress(it) }
+                    }
                     navController.navigate(Routes.remoteRoute(device)) {
                         popUpTo(Routes.SCAN)
                     }

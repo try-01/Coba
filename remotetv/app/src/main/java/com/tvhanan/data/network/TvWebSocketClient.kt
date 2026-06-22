@@ -3,7 +3,6 @@ package com.tvhanan.data.network
 import android.util.Base64
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,8 +29,8 @@ class TvWebSocketClient {
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
-    private val _tokenReceived = Channel<String>(Channel.CONFLATED)
-    val tokenReceived: Channel<String> = _tokenReceived
+    private val _tokenReceived = MutableStateFlow<String?>(null)
+    val tokenReceived: StateFlow<String?> = _tokenReceived.asStateFlow()
 
     private val appNameBase64: String by lazy {
         Base64.encodeToString("TvHanan".toByteArray(), Base64.NO_WRAP)
@@ -107,7 +106,7 @@ class TvWebSocketClient {
                 val newToken = data?.optString("token")
                 if (!newToken.isNullOrEmpty()) {
                     currentToken = newToken
-                    _tokenReceived.trySend(newToken)
+                    _tokenReceived.value = newToken
                 }
             }
         } catch (_: Exception) {
