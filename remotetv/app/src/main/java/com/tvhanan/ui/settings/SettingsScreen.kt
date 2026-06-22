@@ -365,33 +365,39 @@ private fun SettingsRow(
                 onClick = onClick
             )
             .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .background(color = GlassSurface, shape = RoundedCornerShape(10.dp)),
-            contentAlignment = Alignment.Center
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(0.75f)
         ) {
-            Text(
-                text = icon,
-                color = if (danger) DisconnectedColor else TextDim,
-                fontSize = 16.sp
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                color = if (danger) DisconnectedColor else TextPrimary,
-                fontSize = 13.5.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = desc,
-                color = TextFaint,
-                fontSize = 11.5.sp
-            )
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .background(color = GlassSurface, shape = RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = icon,
+                    color = if (danger) DisconnectedColor else TextDim,
+                    fontSize = 16.sp
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = title,
+                    color = if (danger) DisconnectedColor else TextPrimary,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = desc,
+                    color = TextFaint,
+                    fontSize = 11.5.sp
+                )
+            }
         }
         if (trailing != null) {
             trailing()
@@ -422,33 +428,39 @@ private fun SettingsToggleRow(
                 onClick = { onCheckedChange(!checked) }
             )
             .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .background(color = GlassSurface, shape = RoundedCornerShape(10.dp)),
-            contentAlignment = Alignment.Center
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(0.75f)
         ) {
-            Text(
-                text = icon,
-                color = TextDim,
-                fontSize = 16.sp
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                color = TextPrimary,
-                fontSize = 13.5.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = desc,
-                color = TextFaint,
-                fontSize = 11.5.sp
-            )
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .background(color = GlassSurface, shape = RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = icon,
+                    color = TextDim,
+                    fontSize = 16.sp
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = title,
+                    color = TextPrimary,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = desc,
+                    color = TextFaint,
+                    fontSize = 11.5.sp
+                )
+            }
         }
         Switch(
             checked = checked,
@@ -482,15 +494,15 @@ private fun RemoteSizeSelector(
     ) {
         options.forEach { (value, label) ->
             val isActive = selected == value
+            val bgModifier = if (isActive) {
+                Modifier.background(Brush.linearGradient(listOf(NavAccent, NavAccent2)))
+            } else {
+                Modifier.background(GlassSurface)
+            }
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(
-                        if (isActive)
-                            Brush.linearGradient(listOf(NavAccent, NavAccent2))
-                        else
-                            GlassSurface
-                    )
+                    .then(bgModifier)
                     .border(
                         1.dp,
                         if (isActive) NavAccent.copy(alpha = 0.4f) else GlassBorder,
