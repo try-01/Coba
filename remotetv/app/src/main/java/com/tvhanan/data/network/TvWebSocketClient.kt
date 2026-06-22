@@ -40,7 +40,7 @@ class TvWebSocketClient {
     suspend fun connect(ip: String, port: Int = 8001, token: String? = null): Result<WebSocket> {
         return suspendCancellableCoroutine { continuation ->
             currentToken = token
-            val url = buildUrl(ip, port)
+            val url = buildUrl(ip, port, currentToken)
             val request = Request.Builder()
                 .url(url)
                 .build()

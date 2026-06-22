@@ -8,6 +8,7 @@ import com.tvhanan.data.network.WakeOnLanUtil
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
 import com.tvhanan.util.HapticUtil
+import kotlinx.coroutines.channels.consumeAsFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,7 +38,7 @@ class RemoteViewModel(
 
             if (result.isSuccess && savedToken == null) {
                 launch {
-                    webSocketClient.tokenReceived.consumeEach { token ->
+                    webSocketClient.tokenReceived.consumeAsFlow().collect { token ->
                         preferences?.saveToken(token)
                     }
                 }
