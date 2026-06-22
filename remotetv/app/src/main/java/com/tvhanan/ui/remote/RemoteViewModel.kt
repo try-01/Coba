@@ -28,6 +28,9 @@ class RemoteViewModel(
     private val _showNumpad = MutableStateFlow(false)
     val showNumpad: StateFlow<Boolean> = _showNumpad.asStateFlow()
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
     fun toggleNumpad() {
         _showNumpad.value = !_showNumpad.value
     }
@@ -35,15 +38,20 @@ class RemoteViewModel(
     fun connect() {
         viewModelScope.launch {
             val savedToken = preferences?.getToken()
-            val result = webSocketClient.connect(ipAddress, port, savedToken)
+            val result = webSocketClient.connectWithFallback(ipAddress, savedToken)
 
-            if (result.isSuccess && savedToken == null) {
-                launch {
-                    val newToken = webSocketClient.tokenReceived
-                        .filterNotNull()
-                        .first()
-                    preferences?.saveToken(newToken)
+            if (result.isSuccess) {
+                if (savedToken == null) {
+                    launch {
+                        val newToken = webSocketClient.tokenReceived
+                            .filterNotNull()
+                            .first()
+                        preferences?.saveToken(newToken)
+                    }
                 }
+            } else {
+                _errorMessage.value = result.exceptionOrNull()?.message
+                    ?: "Gagal terhubung ke TV"
             }
         }
     }

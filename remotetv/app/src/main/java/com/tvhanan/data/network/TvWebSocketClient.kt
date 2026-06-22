@@ -20,7 +20,7 @@ class TvWebSocketClient {
 
     private val client = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
-        .connectTimeout(5, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
         .build()
 
     private var webSocket: WebSocket? = null
@@ -33,7 +33,10 @@ class TvWebSocketClient {
     val tokenReceived: StateFlow<String?> = _tokenReceived.asStateFlow()
 
     private val appNameBase64: String by lazy {
-        Base64.encodeToString("TvHanan".toByteArray(), Base64.NO_WRAP)
+        Base64.encodeToString(
+            "TvHanan".toByteArray(),
+            Base64.NO_WRAP or Base64.URL_SAFE
+        )
     }
 
     suspend fun connect(ip: String, port: Int = 8001, token: String? = null): Result<WebSocket> {
@@ -49,6 +52,7 @@ class TvWebSocketClient {
             val ws = client.newWebSocket(request, object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     _connectionState.value = ConnectionState.CONNECTED
+                    sendPairingKey()
                     if (continuation.isActive) {
                         continuation.resume(Result.success(webSocket))
                     }
@@ -79,8 +83,22 @@ class TvWebSocketClient {
         }
     }
 
+    suspend fun connectWithFallback(ip: String, token: String? = null): Result<WebSocket> {
+        val ports = listOf(8001, 8002)
+        for (port in ports) {
+            val result = connect(ip, port, token)
+            if (result.isSuccess) return result
+        }
+        return Result.failure(Exception("TV tidak merespon di port 8001 atau 8002"))
+    }
+
     fun sendKey(key: RemoteKey): Boolean {
         val payload = SamsungKeyMapper.createKeyPressPayload(key)
+        return webSocket?.send(payload) ?: false
+    }
+
+    private fun sendPairingKey(): Boolean {
+        val payload = SamsungKeyMapper.createPairingPayload()
         return webSocket?.send(payload) ?: false
     }
 

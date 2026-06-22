@@ -7,5 +7,5 @@ import com.tvhanan.data.network.TvDiscoveryService
 class ServiceLocator(context: Context) {
 
     val preferences: TvPreferences by lazy { TvPreferences(context) }
-    val discoveryService: TvDiscoveryService by lazy { TvDiscoveryService() }
+    val discoveryService: TvDiscoveryService by lazy { TvDiscoveryService(context) }
 }

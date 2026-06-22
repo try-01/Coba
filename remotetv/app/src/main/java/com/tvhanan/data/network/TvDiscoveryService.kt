@@ -1,5 +1,7 @@
 package com.tvhanan.data.network
 
+import android.content.Context
+import android.net.wifi.WifiManager
 import com.tvhanan.domain.model.TvDevice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -8,18 +10,19 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.Socket
 import java.net.SocketTimeoutException
 
-class TvDiscoveryService {
+class TvDiscoveryService(private val context: Context) {
 
     companion object {
         private const val SSDP_ADDR = "239.255.255.250"
         private const val SSDP_PORT = 1900
-        private const val SSDP_TIMEOUT = 3000L
+        private const val SSDP_TIMEOUT = 4000L
         private const val SCAN_TIMEOUT = 300
         private const val TARGET_PORT = 8001
     }
@@ -34,57 +37,63 @@ class TvDiscoveryService {
 
     private suspend fun discoverSSDP(): List<TvDevice> {
         return withContext(Dispatchers.IO) {
-            val socket = DatagramSocket()
-            socket.soTimeout = SSDP_TIMEOUT.toInt()
+            val multicastLock = acquireMulticastLock()
 
-            val ssdpRequest = buildString {
-                append("M-SEARCH * HTTP/1.1\r\n")
-                append("HOST: $SSDP_ADDR:$SSDP_PORT\r\n")
-                append("MAN: \"ssdp:discover\"\r\n")
-                append("ST: urn:samsung.com:device:RemoteControlReceiver:1\r\n")
-                append("MX: 2\r\n")
-                append("\r\n")
-            }
+            try {
+                val socket = DatagramSocket()
+                socket.soTimeout = SSDP_TIMEOUT.toInt()
 
-            val sendPacket = DatagramPacket(
-                ssdpRequest.toByteArray(),
-                ssdpRequest.length,
-                InetAddress.getByName(SSDP_ADDR),
-                SSDP_PORT
-            )
-            socket.send(sendPacket)
-
-            val results = mutableListOf<TvDevice>()
-            val startTime = System.currentTimeMillis()
-
-            while (System.currentTimeMillis() - startTime < SSDP_TIMEOUT) {
-                try {
-                    val buffer = ByteArray(1024)
-                    val packet = DatagramPacket(buffer, buffer.size)
-                    socket.receive(packet)
-
-                    val response = String(packet.data, 0, packet.length)
-                    val ip = parseLocationIp(response)
-                    if (ip != null) {
-                        results.add(TvDevice(ipAddress = ip, name = "Samsung TV"))
-                    }
-                } catch (_: SocketTimeoutException) {
-                    break
-                } catch (_: Exception) {
-                    continue
+                val ssdpRequest = buildString {
+                    append("M-SEARCH * HTTP/1.1\r\n")
+                    append("HOST: $SSDP_ADDR:$SSDP_PORT\r\n")
+                    append("MAN: \"ssdp:discover\"\r\n")
+                    append("ST: urn:samsung.com:device:RemoteControlReceiver:1\r\n")
+                    append("MX: 3\r\n")
+                    append("\r\n")
                 }
-            }
 
-            socket.close()
-            results.distinctBy { it.ipAddress }
+                val sendPacket = DatagramPacket(
+                    ssdpRequest.toByteArray(),
+                    ssdpRequest.length,
+                    InetAddress.getByName(SSDP_ADDR),
+                    SSDP_PORT
+                )
+                socket.send(sendPacket)
+
+                val results = mutableListOf<TvDevice>()
+                val startTime = System.currentTimeMillis()
+
+                while (System.currentTimeMillis() - startTime < SSDP_TIMEOUT) {
+                    try {
+                        val buffer = ByteArray(1024)
+                        val packet = DatagramPacket(buffer, buffer.size)
+                        socket.receive(packet)
+
+                        val response = String(packet.data, 0, packet.length)
+                        val ip = parseLocationIp(response)
+                        if (ip != null && !results.any { it.ipAddress == ip }) {
+                            results.add(TvDevice(ipAddress = ip, name = "Samsung TV"))
+                        }
+                    } catch (_: SocketTimeoutException) {
+                        break
+                    } catch (_: Exception) {
+                        continue
+                    }
+                }
+
+                socket.close()
+                results
+            } finally {
+                releaseMulticastLock(multicastLock)
+            }
         }
     }
 
     private suspend fun scanSubnet(prefix: String): List<TvDevice> = coroutineScope {
-        val results = (1..254).map { octet ->
+        (1..254).map { octet ->
             async {
                 val ip = "$prefix.$octet"
-                if (isPortOpen(ip, TARGET_PORT)) {
+                if (isPortOpen(ip, 8001)) {
                     TvDevice(ipAddress = ip)
                 } else if (isPortOpen(ip, 8002)) {
                     TvDevice(ipAddress = ip, port = 8002)
@@ -93,8 +102,6 @@ class TvDiscoveryService {
                 }
             }
         }.awaitAll().filterNotNull()
-
-        results
     }
 
     private fun isPortOpen(ip: String, port: Int): Boolean {
@@ -118,7 +125,7 @@ class TvDiscoveryService {
                 val addresses = networkInterface.inetAddresses
                 while (addresses.hasMoreElements()) {
                     val addr = addresses.nextElement()
-                    if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
+                    if (addr is Inet4Address && !addr.isLoopbackAddress) {
                         val ip = addr.hostAddress ?: continue
                         return ip.substringBeforeLast(".")
                     }
@@ -130,17 +137,40 @@ class TvDiscoveryService {
         }
     }
 
+    private var acquiredLock: WifiManager.MulticastLock? = null
+
+    private fun acquireMulticastLock(): WifiManager.MulticastLock? {
+        return try {
+            val wifi = context.applicationContext
+                .getSystemService(Context.WIFI_SERVICE) as? WifiManager ?: return null
+            val lock = wifi.createMulticastLock("tvhanan_ssdp")
+            lock.setReferenceCounted(false)
+            lock.acquire()
+            acquiredLock = lock
+            lock
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun releaseMulticastLock(lock: WifiManager.MulticastLock?) {
+        try {
+            lock?.release()
+            acquiredLock = null
+        } catch (_: Exception) {
+        }
+    }
+
     private fun parseLocationIp(response: String): String? {
         val locationHeader = response.lines().firstOrNull {
-            it.startsWith("LOCATION:", ignoreCase = true) ||
-                it.startsWith("location:", ignoreCase = true)
+            it.startsWith("LOCATION:", ignoreCase = true)
         } ?: return null
 
         val url = locationHeader.substringAfter(":").trim()
         return try {
             val host = InetAddress.getByName(
-                url.removePrefix("http://").removePrefix("https://").substringBefore("/")
-                    .substringBefore(":")
+                url.removePrefix("http://").removePrefix("https://")
+                    .substringBefore("/").substringBefore(":")
             )
             host.hostAddress
         } catch (_: Exception) {

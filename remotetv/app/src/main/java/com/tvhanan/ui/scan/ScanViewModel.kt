@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class ScanViewModel(
-    private val discoveryService: TvDiscoveryService = TvDiscoveryService(),
+    private val discoveryService: TvDiscoveryService,
     private val preferences: TvPreferences? = null
 ) : ViewModel() {
 

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -55,6 +54,7 @@ fun RemoteScreen(
 ) {
     val connectionState by viewModel.connectionState.collectAsState()
     val showNumpad by viewModel.showNumpad.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.connect()
@@ -67,6 +67,15 @@ fun RemoteScreen(
             .padding(16.dp)
     ) {
         StatusBar(connectionState = connectionState)
+
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage!!,
+                color = DisconnectedRed,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
