@@ -1,5 +1,6 @@
 package com.tvhanan.ui.remote
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tvhanan.data.local.TvPreferences
@@ -23,6 +24,10 @@ class RemoteViewModel(
     private val preferences: TvPreferences? = null
 ) : ViewModel() {
 
+    companion object {
+        private const val TAG = "TvHanan"
+    }
+
     val connectionState: StateFlow<ConnectionState> = webSocketClient.connectionState
 
     private val _showNumpad = MutableStateFlow(false)
@@ -36,22 +41,28 @@ class RemoteViewModel(
     }
 
     fun connect() {
+        Log.d(TAG, "connect() called for $ipAddress")
         viewModelScope.launch {
             val savedToken = preferences?.getToken()
+            Log.d(TAG, "savedToken = ${if (savedToken == null) "null" else "exists"}")
+
             val result = webSocketClient.connectWithFallback(ipAddress, savedToken)
 
             if (result.isSuccess) {
+                Log.d(TAG, "Connection succeeded")
                 if (savedToken == null) {
                     launch {
                         val newToken = webSocketClient.tokenReceived
                             .filterNotNull()
                             .first()
                         preferences?.saveToken(newToken)
+                        Log.d(TAG, "First token saved: $newToken")
                     }
                 }
             } else {
-                _errorMessage.value = result.exceptionOrNull()?.message
-                    ?: "Gagal terhubung ke TV"
+                val errorMsg = result.exceptionOrNull()?.message ?: "Gagal terhubung ke TV"
+                Log.e(TAG, "Connection failed: $errorMsg")
+                _errorMessage.value = errorMsg
             }
         }
     }
