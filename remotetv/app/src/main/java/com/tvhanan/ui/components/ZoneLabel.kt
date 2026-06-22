@@ -34,7 +34,7 @@ fun ZoneLabel(
                 modifier = Modifier
                     .width(14.dp)
                     .height(2.dp)
-                    .background(accentColor, RoundedCornerShape(2.dp))
+                    .background(color = accentColor, shape = RoundedCornerShape(2.dp))
             )
             Spacer(Modifier.width(8.dp))
         }

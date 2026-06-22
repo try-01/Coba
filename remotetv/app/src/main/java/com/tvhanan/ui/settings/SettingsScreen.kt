@@ -6,17 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -256,7 +246,7 @@ private fun TvInfoCard(device: TvDevice?) {
             Box(
                 modifier = Modifier
                     .size(50.dp)
-                    .background(GlassSurface, RoundedCornerShape(16.dp))
+                    .background(color = GlassSurface, shape = RoundedCornerShape(16.dp))
                     .border(1.dp, GlassBorder, RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center
             ) {
@@ -292,7 +282,7 @@ private fun TvInfoCard(device: TvDevice?) {
             Box(
                 modifier = Modifier
                     .size(6.dp)
-                    .background(ConnectedColor, RoundedCornerShape(3.dp))
+                    .background(color = ConnectedColor, shape = RoundedCornerShape(3.dp))
             )
             Spacer(Modifier.width(6.dp))
             Text("Terhubung", color = ConnectedColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
@@ -336,7 +326,7 @@ private fun MetaItem(label: String, value: String) {
 @Composable
 private fun SettingsGroup(
     label: String,
-    content: @Composable Column.() -> Unit
+    content: @Composable ColumnScope.() -> Unit
 ) {
     Column {
         Text(
@@ -350,7 +340,7 @@ private fun SettingsGroup(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(GlassSurface, RoundedCornerShape(18.dp))
+                .background(color = GlassSurface, shape = RoundedCornerShape(18.dp))
                 .border(1.dp, GlassBorder, RoundedCornerShape(18.dp)),
             content = content
         )
@@ -380,7 +370,7 @@ private fun SettingsRow(
         Box(
             modifier = Modifier
                 .size(34.dp)
-                .background(GlassSurface, RoundedCornerShape(10.dp)),
+                .background(color = GlassSurface, shape = RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -437,7 +427,7 @@ private fun SettingsToggleRow(
         Box(
             modifier = Modifier
                 .size(34.dp)
-                .background(GlassSurface, RoundedCornerShape(10.dp)),
+                .background(color = GlassSurface, shape = RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text(

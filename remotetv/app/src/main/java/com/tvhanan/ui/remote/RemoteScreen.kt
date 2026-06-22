@@ -2,17 +2,7 @@ package com.tvhanan.ui.remote
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -43,9 +33,8 @@ import com.tvhanan.ui.theme.ColorKeyYellow
 import com.tvhanan.ui.theme.ConnectedColor
 import com.tvhanan.ui.theme.ConnectingColor
 import com.tvhanan.ui.theme.DisconnectedColor
-import com.tvhanan.ui.theme.GlassBorder
-import com.tvhanan.ui.theme.GlassSurface
 import com.tvhanan.ui.theme.MediaAccent
+import com.tvhanan.ui.theme.MediaAccent2
 import com.tvhanan.ui.theme.NavAccent
 import com.tvhanan.ui.theme.NavAccent2
 import com.tvhanan.ui.theme.PowerGradientEnd
@@ -53,7 +42,11 @@ import com.tvhanan.ui.theme.PowerGradientStart
 import com.tvhanan.ui.theme.TextDim
 import com.tvhanan.ui.theme.TextFaint
 import com.tvhanan.ui.theme.TextPrimary
+import com.tvhanan.ui.theme.GlassSurface
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.lazy.stickyHeader
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RemoteScreen(
     viewModel: RemoteViewModel,
@@ -195,7 +188,7 @@ private fun StickyHeaderBar(
             Box(
                 modifier = Modifier
                     .size(8.dp)
-                    .background(dotColor, RoundedCornerShape(4.dp))
+                    .background(color = dotColor, shape = RoundedCornerShape(4.dp))
             )
             Spacer(Modifier.width(8.dp))
             Text(
