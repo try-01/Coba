@@ -18,6 +18,7 @@ enum class RemoteKey(val keyCode: String, val label: String) {
     CH_UP("KEY_CHUP", "CH+"),
     CH_DOWN("KEY_CHDOWN", "CH-"),
     CH_LIST("KEY_CH_LIST", "CH List"),
+    PRE_CH("KEY_PRECH", "Pre-CH"),
 
     KEY_0("KEY_0", "0"),
     KEY_1("KEY_1", "1"),
@@ -29,12 +30,11 @@ enum class RemoteKey(val keyCode: String, val label: String) {
     KEY_7("KEY_7", "7"),
     KEY_8("KEY_8", "8"),
     KEY_9("KEY_9", "9"),
-    PRE_CH("KEY_PRECH", "Pre-CH"),
 
-    RED("KEY_RED", "Red"),
-    GREEN("KEY_GREEN", "Green"),
-    YELLOW("KEY_YELLOW", "Yellow"),
-    BLUE("KEY_BLUE", "Blue"),
+    RED("KEY_RED", "A"),
+    GREEN("KEY_GREEN", "B"),
+    YELLOW("KEY_YELLOW", "C"),
+    BLUE("KEY_BLUE", "D"),
 
     SOURCE("KEY_SOURCE", "Source"),
     HDMI("KEY_HDMI", "HDMI"),
@@ -48,5 +48,8 @@ enum class RemoteKey(val keyCode: String, val label: String) {
     MENU("KEY_MENU", "Menu"),
     GUIDE("KEY_GUIDE", "Guide"),
     INFO("KEY_INFO", "Info"),
-    EXIT("KEY_EXIT", "Exit")
+    EXIT("KEY_EXIT", "Exit"),
+    SLEEP("KEY_SLEEP", "Sleep"),
+    PICTURE_SIZE("KEY_PICTURE_SIZE", "P.Size"),
+    CAPTION("KEY_CAPTION", "CC/VD")
 }

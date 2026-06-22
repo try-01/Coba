@@ -27,7 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tvhanan.domain.model.TvDevice
-import com.tvhanan.ui.theme.ConnectedGreen
+import com.tvhanan.ui.theme.ConnectedColor
 
 @Composable
 fun ScanScreen(

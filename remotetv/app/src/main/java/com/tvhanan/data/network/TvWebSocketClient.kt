@@ -4,10 +4,15 @@ import android.util.Base64
 import android.util.Log
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -34,24 +39,27 @@ class TvWebSocketClient {
         override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
     })
 
-    private val client by lazy {
+    private val sslClient by lazy {
         try {
             val sslCtx = SSLContext.getInstance("TLS")
             sslCtx.init(null, trustAllCerts, SecureRandom())
-
             OkHttpClient.Builder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
-                .connectTimeout(10, TimeUnit.SECONDS)
+                .connectTimeout(8, TimeUnit.SECONDS)
                 .sslSocketFactory(sslCtx.socketFactory, trustAllCerts[0] as X509TrustManager)
                 .hostnameVerifier { _, _ -> true }
                 .build()
         } catch (e: Exception) {
-            Log.e(TAG, "SSL init error: ${e.message}", e)
-            OkHttpClient.Builder()
-                .readTimeout(0, TimeUnit.MILLISECONDS)
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .build()
+            Log.e(TAG, "SSL client init error: ${e.message}")
+            null
         }
+    }
+
+    private val plainClient by lazy {
+        OkHttpClient.Builder()
+            .readTimeout(0, TimeUnit.MILLISECONDS)
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .build()
     }
 
     private var webSocket: WebSocket? = null
@@ -74,71 +82,82 @@ class TvWebSocketClient {
 
             Log.d(TAG, "Connecting to $ip:$port...")
 
+            val client = if (port == 8002) (sslClient ?: plainClient) else plainClient
             val request = Request.Builder()
                 .url(buildUrl(ip, port, currentToken))
                 .header("Origin", "https://localhost:$port")
                 .build()
 
-            val ws = client.newWebSocket(request, object : WebSocketListener() {
-                override fun onOpen(webSocket: WebSocket, response: Response) {
-                    Log.d(TAG, "Connected to $ip:$port")
-                    _connectionState.value = ConnectionState.CONNECTED
-                    sendKey(RemoteKey.HOME)
-                    if (continuation.isActive) {
-                        continuation.resume(Result.success(webSocket))
+            try {
+                val ws = client.newWebSocket(request, object : WebSocketListener() {
+                    override fun onOpen(ws: WebSocket, response: Response) {
+                        Log.d(TAG, "Connected to $ip:$port")
+                        _connectionState.value = ConnectionState.CONNECTED
+                        sendKey(RemoteKey.HOME)
+                        if (continuation.isActive) {
+                            continuation.resume(Result.success(ws))
+                        }
                     }
-                }
 
-                override fun onMessage(webSocket: WebSocket, text: String) {
-                    handleMessage(text)
-                }
-
-                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    Log.e(TAG, "Failed to $ip:$port: ${t.message}")
-                    response?.let {
-                        Log.e(TAG, "HTTP ${it.code} ${it.message}")
+                    override fun onMessage(ws: WebSocket, text: String) {
+                        handleMessage(text)
                     }
-                    _connectionState.value = ConnectionState.ERROR
-                    if (continuation.isActive) {
-                        continuation.resume(Result.failure(t))
-                    }
-                }
 
-                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                    Log.d(TAG, "Closed: $code $reason")
+                    override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+                        val detail = t.message ?: t.javaClass.simpleName
+                        Log.e(TAG, "Failed $ip:$port: $detail")
+                        if (response != null) Log.e(TAG, "HTTP ${response.code}")
+                        _connectionState.value = ConnectionState.ERROR
+                        if (continuation.isActive) {
+                            continuation.resume(Result.failure(t))
+                        }
+                    }
+
+                    override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+                        Log.d(TAG, "Closed: $code $reason")
+                        _connectionState.value = ConnectionState.DISCONNECTED
+                    }
+                })
+
+                webSocket = ws
+
+                continuation.invokeOnCancellation {
+                    ws.close(1001, "Cancelled")
                     _connectionState.value = ConnectionState.DISCONNECTED
                 }
-            })
-
-            webSocket = ws
-
-            continuation.invokeOnCancellation {
-                ws.close(1001, "Cancelled")
-                _connectionState.value = ConnectionState.DISCONNECTED
+            } catch (e: Exception) {
+                Log.e(TAG, "WS error: ${e.message}")
+                _connectionState.value = ConnectionState.ERROR
+                if (continuation.isActive) {
+                    continuation.resume(Result.failure(e))
+                }
             }
         }
     }
 
     suspend fun connectWithFallback(ip: String, token: String? = null): Result<WebSocket> {
-        Log.d(TAG, "=== Trying to connect $ip ===")
-        Log.d(TAG, "Saved token: ${if (token.isNullOrEmpty()) "none" else "exists"}")
+        Log.d(TAG, "=== Connecting $ip ===")
 
-        val ports = listOf(8002, 8001)
-        for (port in ports) {
-            Log.d(TAG, "Trying port $port...")
+        for (port in listOf(8002, 8001)) {
+            Log.d(TAG, "Trying $ip:$port...")
             val result = connect(ip, port, token)
             if (result.isSuccess) {
-                Log.d(TAG, "Connected on port $port!")
+                Log.d(TAG, "Success on $ip:$port!")
                 return result
             }
-            Log.e(TAG, "Port $port failed, ${result.exceptionOrNull()?.message}")
+            Log.e(TAG, "Failed $ip:$port: ${result.exceptionOrNull()?.message}")
         }
         return Result.failure(Exception("TV tidak merespon"))
     }
 
     fun sendKey(key: RemoteKey): Boolean {
-        val payload = SamsungKeyMapper.createKeyPressPayload(key)
-        return webSocket?.send(payload) ?: false
+        return try {
+            val payload = SamsungKeyMapper.createKeyPressPayload(key)
+            webSocket?.send(payload) ?: false
+        } catch (e: Exception) {
+            Log.e(TAG, "Send error: ${e.message}")
+            false
+        }
     }
 
     fun disconnect() {
@@ -156,21 +175,15 @@ class TvWebSocketClient {
     private fun handleMessage(text: String) {
         try {
             val json = JSONObject(text)
-            val event = json.optString("event")
-            Log.d(TAG, "Event: $event")
-
-            if (event == "ms.channel.ready") {
-                val data = json.optJSONObject("data")
-                val newToken = data?.optString("token")
+            Log.d(TAG, "Event: ${json.optString("event")}")
+            if (json.optString("event") == "ms.channel.ready") {
+                val newToken = json.optJSONObject("data")?.optString("token")
                 if (!newToken.isNullOrEmpty()) {
                     currentToken = newToken
                     _tokenReceived.value = newToken
-                    Log.d(TAG, "Token saved: $newToken")
+                    Log.d(TAG, "Token: $newToken")
                 }
             }
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) {}
     }
-
-    fun isConnected(): Boolean = _connectionState.value == ConnectionState.CONNECTED
 }

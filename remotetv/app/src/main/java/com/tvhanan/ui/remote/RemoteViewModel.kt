@@ -8,6 +8,7 @@ import com.tvhanan.data.network.TvWebSocketClient
 import com.tvhanan.data.network.WakeOnLanUtil
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
+import com.tvhanan.domain.model.TvDevice
 import com.tvhanan.util.HapticUtil
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,15 +37,33 @@ class RemoteViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _remoteSize = MutableStateFlow("fit")
+    val remoteSize: StateFlow<String> = _remoteSize.asStateFlow()
+
+    private val _meshEnabled = MutableStateFlow(true)
+    val meshEnabled: StateFlow<Boolean> = _meshEnabled.asStateFlow()
+
+    val tvDevice: TvDevice
+        get() = TvDevice(ipAddress = ipAddress, macAddress = macAddress, port = port)
+
+    init {
+        viewModelScope.launch {
+            preferences?.let {
+                _remoteSize.value = it.remoteSize.first()
+                _meshEnabled.value = it.meshBackground.first()
+            }
+        }
+    }
+
     fun toggleNumpad() {
         _showNumpad.value = !_showNumpad.value
     }
 
     fun connect() {
         Log.d(TAG, "connect() called for $ipAddress")
+        _errorMessage.value = null
         viewModelScope.launch {
             val savedToken = preferences?.getToken()
-            Log.d(TAG, "savedToken = ${if (savedToken == null) "null" else "exists"}")
 
             val result = webSocketClient.connectWithFallback(ipAddress, savedToken)
 

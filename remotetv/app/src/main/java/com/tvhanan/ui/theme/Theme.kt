@@ -9,13 +9,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = RemoteBlue,
-    secondary = RemoteGreen,
-    tertiary = RemoteYellow,
-    background = DarkBackground,
-    surface = DarkSurface,
-    surfaceVariant = DarkSurfaceVariant,
-    error = RemoteRed
+    primary = NavAccent,
+    secondary = NavAccent2,
+    tertiary = AccentWarn,
+    background = BgBase,
+    surface = GlassSurface,
+    surfaceVariant = GlassSurface,
+    error = DisconnectedColor
 )
 
 @Composable

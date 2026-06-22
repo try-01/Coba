@@ -2,6 +2,7 @@ package com.tvhanan.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
@@ -15,7 +16,7 @@ val RemoteTypography = Typography(
         fontSize = 22.sp
     ),
     titleMedium = TextStyle(
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Bold,
         fontSize = 18.sp
     ),
     bodyLarge = TextStyle(
@@ -28,10 +29,16 @@ val RemoteTypography = Typography(
     ),
     labelLarge = TextStyle(
         fontWeight = FontWeight.Medium,
-        fontSize = 22.sp
+        fontSize = 22.sp,
+        fontFamily = FontFamily.SansSerif
     ),
     labelMedium = TextStyle(
         fontWeight = FontWeight.Medium,
         fontSize = 14.sp
+    ),
+    labelSmall = TextStyle(
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        letterSpacing = 0.12.sp
     )
 )

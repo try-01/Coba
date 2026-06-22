@@ -2,20 +2,38 @@ package com.tvhanan.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val DarkBackground = Color(0xFF1A1A2E)
-val DarkSurface = Color(0xFF16213E)
-val DarkSurfaceVariant = Color(0xFF0F3460)
+val BgBase = Color(0xFF0D0E12)
 
-val RemoteRed = Color(0xFFE94560)
-val RemoteGreen = Color(0xFF4CAF50)
-val RemoteYellow = Color(0xFFFFC107)
-val RemoteBlue = Color(0xFF2196F3)
+val GlassSurface = Color.White.copy(alpha = 0.06f)
+val GlassSurfacePressed = Color.White.copy(alpha = 0.14f)
+val GlassBorder = Color.White.copy(alpha = 0.12f)
+val GlassBorderStrong = Color.White.copy(alpha = 0.24f)
 
-val PowerRed = Color(0xFFD32F2F)
+val TextPrimary = Color(0xFFF2F3F5)
+val TextDim = Color(0xFFF2F3F5).copy(alpha = 0.50f)
+val TextFaint = Color(0xFFF2F3F5).copy(alpha = 0.32f)
 
-val ConnectedGreen = Color(0xFF4CAF50)
-val ConnectingYellow = Color(0xFFFFC107)
-val DisconnectedRed = Color(0xFFE53935)
+val PowerGradientStart = Color(0xFFFF6B4A)
+val PowerGradientEnd = Color(0xFFFF3D7A)
 
-val DpadGray = Color(0xFF2A2A3E)
-val DpadActive = Color(0xFF3A3A52)
+val NavAccent = Color(0xFF3DD9C4)
+val NavAccent2 = Color(0xFF2E8FFF)
+
+val MediaAccent = Color(0xFFC99BFF)
+val MediaAccent2 = Color(0xFF6E7BFF)
+
+val AccentWarn = Color(0xFFFFC857)
+
+val ConnectedColor = Color(0xFF3DD9C4)
+val ConnectingColor = Color(0xFFFFC857)
+val DisconnectedColor = Color(0xFFFF5A5A)
+
+val ColorKeyRed = Color(0xFFFF8A8A)
+val ColorKeyGreen = Color(0xFF7CE8A4)
+val ColorKeyYellow = Color(0xFFFFD98C)
+val ColorKeyBlue = Color(0xFF8FC0FF)
+
+val MeshBlob1 = Color(0xFF1E2A4A)
+val MeshBlob2 = Color(0xFF3A1F3D)
+val MeshBlob3 = Color(0xFF16313A)
+val MeshBlob4 = Color(0xFF2E1E46)

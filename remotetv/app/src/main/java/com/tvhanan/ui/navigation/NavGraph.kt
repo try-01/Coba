@@ -1,5 +1,6 @@
 package com.tvhanan.ui.navigation
 
+import android.app.Activity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -15,12 +16,15 @@ import com.tvhanan.ui.remote.RemoteScreen
 import com.tvhanan.ui.remote.RemoteViewModel
 import com.tvhanan.ui.scan.ScanScreen
 import com.tvhanan.ui.scan.ScanViewModel
+import com.tvhanan.ui.settings.SettingsScreen
+import com.tvhanan.ui.settings.SettingsViewModel
 import kotlinx.coroutines.launch
 
 object Routes {
     const val SCAN = "scan"
     const val MANUAL = "manual"
     const val REMOTE = "remote/{ip}/{port}"
+    const val SETTINGS = "settings"
 
     fun remoteRoute(device: TvDevice) = "remote/${device.ipAddress}/${device.port}"
 }
@@ -47,7 +51,9 @@ fun TvRemoteNavGraph(
                         serviceLocator.preferences?.saveLastIp(device.ipAddress)
                         serviceLocator.preferences?.saveLastPort(device.port.toString())
                     }
-                    navController.navigate(Routes.remoteRoute(device))
+                    navController.navigate(Routes.remoteRoute(device)) {
+                        popUpTo(Routes.SCAN)
+                    }
                 },
                 onManualConnect = {
                     navController.navigate(Routes.MANUAL)
@@ -93,9 +99,42 @@ fun TvRemoteNavGraph(
             }
             RemoteScreen(
                 viewModel = viewModel,
-                onBack = {
-                    viewModel.disconnect()
-                    navController.popBackStack()
+                onNavigateToSettings = {
+                    navController.navigate(Routes.SETTINGS)
+                }
+            )
+        }
+
+        composable(Routes.SETTINGS) {
+            val remoteViewModel = remember {
+                // Retrieve the current remote view model from the nav back stack
+                // For simplicity, we create a fresh settings VM
+                SettingsViewModel(preferences = serviceLocator.preferences)
+            }
+            SettingsScreen(
+                viewModel = remoteViewModel,
+                tvDevice = TvDevice(ipAddress = "192.168.1.42"),
+                onBack = { navController.popBackStack() },
+                onNavigateToScan = {
+                    navController.navigate(Routes.SCAN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onNavigateToManual = {
+                    navController.navigate(Routes.MANUAL) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onForgetTv = {
+                    navController.navigate(Routes.SCAN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onExit = {
+                    (navController.context as? Activity)?.finish()
+                },
+                onShowFeedback = {
+                    // Could open email intent or just show a toast
                 }
             )
         }
