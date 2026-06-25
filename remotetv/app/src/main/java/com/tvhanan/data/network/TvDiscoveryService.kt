@@ -35,6 +35,41 @@ class TvDiscoveryService(private val context: Context) {
         scanSubnet(subnet)
     }
 
+/**
+     * Ambil info dasar TV (nama model, MAC wifi asli) lewat endpoint
+     * HTTP /api/v2/ yang tidak butuh pairing/token sama sekali — berguna
+     * untuk menampilkan nama TV yang sebenarnya di hasil scan, bukan
+     * generik "Samsung TV". Dipanggil setelah port terbuka terdeteksi.
+     */
+    private suspend fun fetchDeviceInfo(ip: String): Pair<String, String?>? = withContext(Dispatchers.IO) {
+        try {
+            val url = java.net.URL("http://$ip:8001/api/v2/")
+            val connection = url.openConnection() as java.net.HttpURLConnection
+            connection.connectTimeout = 2000
+            connection.readTimeout = 2000
+            connection.requestMethod = "GET"
+
+            val responseCode = connection.responseCode
+            if (responseCode != 200) {
+                connection.disconnect()
+                return@withContext null
+            }
+
+            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            connection.disconnect()
+
+            val json = org.json.JSONObject(body)
+            val device = json.optJSONObject("device") ?: return@withContext null
+            val name = device.optString("name", "Samsung TV").removePrefix("[TV] ")
+            val mac = device.optString("wifiMac", null)
+
+            name to mac
+        } catch (e: Exception) {
+            Log.e(TAG, "fetchDeviceInfo failed for $ip: ${e.message}")
+            null
+        }
+    }
+
     /**
      * Cek apakah sebuah host:port bisa dijangkau (TCP connect singkat).
      * Dipakai untuk "Hubungkan ulang TV" di Settings — verifikasi cepat
@@ -81,7 +116,14 @@ class TvDiscoveryService(private val context: Context) {
                         val response = String(packet.data, 0, packet.length)
                         val ip = parseLocationIp(response)
                         if (ip != null && !results.any { it.ipAddress == ip }) {
-                            results.add(TvDevice(ipAddress = ip, name = "Samsung TV"))
+                            val info = fetchDeviceInfo(ip)
+                            results.add(
+                                TvDevice(
+                                    ipAddress = ip,
+                                    name = info?.first ?: "Samsung TV",
+                                    macAddress = info?.second
+                                )
+                            )
                         }
                     } catch (_: SocketTimeoutException) {
                         break
@@ -102,10 +144,19 @@ class TvDiscoveryService(private val context: Context) {
         (1..254).map { octet ->
             async {
                 val ip = "$prefix.$octet"
-                if (isPortOpen(ip, 8001)) {
-                    TvDevice(ipAddress = ip)
-                } else if (isPortOpen(ip, 8002)) {
-                    TvDevice(ipAddress = ip, port = 8002)
+                val openPort = when {
+                    isPortOpen(ip, 8001) -> 8001
+                    isPortOpen(ip, 8002) -> 8002
+                    else -> null
+                }
+                if (openPort != null) {
+                    val info = fetchDeviceInfo(ip)
+                    TvDevice(
+                        ipAddress = ip,
+                        name = info?.first ?: "Samsung TV",
+                        macAddress = info?.second,
+                        port = openPort
+                    )
                 } else {
                     null
                 }
@@ -185,5 +236,9 @@ class TvDiscoveryService(private val context: Context) {
         } catch (_: Exception) {
             null
         }
+    }
+
+    companion object {
+        private const val TAG = "TvDiscoveryService"
     }
 }

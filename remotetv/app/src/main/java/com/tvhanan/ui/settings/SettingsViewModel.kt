@@ -56,6 +56,9 @@ class SettingsViewModel(
     private val _tvDevice = MutableStateFlow<TvDevice?>(null)
     val tvDevice: StateFlow<TvDevice?> = _tvDevice.asStateFlow()
 
+    private val _isActuallyConnected = MutableStateFlow(false)
+    val isActuallyConnected: StateFlow<Boolean> = _isActuallyConnected.asStateFlow()
+
     private val _uiPreferences = MutableStateFlow(RemoteUiPreferences())
     val uiPreferences: StateFlow<RemoteUiPreferences> = _uiPreferences.asStateFlow()
 
@@ -79,8 +82,9 @@ class SettingsViewModel(
 
 /** Dipanggil RemoteScreen begitu IP/port/mac aktif diketahui, supaya
      * TvInfoCard di Settings langsung akurat tanpa menunggu DataStore. */
-    fun setActiveDevice(ipAddress: String, port: Int, macAddress: String?) {
-        _tvDevice.value = TvDevice(ipAddress = ipAddress, port = port, macAddress = macAddress)
+    fun setActiveDevice(ipAddress: String, port: Int, macAddress: String?, token: String? = null, isConnected: Boolean = false) {
+        _tvDevice.value = TvDevice(ipAddress = ipAddress, port = port, macAddress = macAddress, token = token)
+        _isActuallyConnected.value = isConnected
     }
 
     fun setHapticEnabled(enabled: Boolean) {

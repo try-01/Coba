@@ -83,6 +83,10 @@ class RemoteViewModel(
         webSocketClient.sendKey(key)
     }
 
+    fun launchApp(appId: String) {
+        webSocketClient.launchApp(appId)
+    }
+
     fun wakeOnLan() {
         macAddress?.let { mac ->
             WakeOnLanUtil.sendWakeOnLan(mac)

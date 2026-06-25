@@ -160,6 +160,28 @@ class TvWebSocketClient {
         }
     }
 
+/**
+     * Meluncurkan app Smart Hub via protokol ms.channel.emit/ed.apps.launch —
+     * BUKAN key press biasa seperti sendKey(). App ID Samsung berbeda-beda
+     * per rilis firmware/wilayah, jadi nilai default di sini tidak terjamin
+     * cocok di semua TV. Lihat AppLauncher.kt untuk daftar appId yang dicoba.
+     */
+    fun launchApp(appId: String): Boolean {
+        if (_connectionState.value != ConnectionState.CONNECTED) {
+            Log.e(TAG, "launchApp($appId) dibatalkan: status koneksi bukan CONNECTED")
+            return false
+        }
+        return try {
+            val payload = """{"method":"ms.channel.emit","params":{"event":"ed.apps.launch","to":"host","data":{"appId":"$appId"}}}"""
+            val sent = webSocket?.send(payload) ?: false
+            Log.d(TAG, "launchApp($appId) sent=$sent")
+            sent
+        } catch (e: Exception) {
+            Log.e(TAG, "Launch app error: ${e.message}")
+            false
+        }
+    }
+
     fun disconnect() {
         webSocket?.close(1000, "User disconnected")
         webSocket = null

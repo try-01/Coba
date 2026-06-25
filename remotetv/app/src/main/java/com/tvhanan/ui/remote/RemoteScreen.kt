@@ -467,15 +467,17 @@ private fun MenuInfoGrid(viewModel: RemoteViewModel, scaleFactor: Float) {
 
 @Composable
 private fun AppShortcutsRow(viewModel: RemoteViewModel, scaleFactor: Float) {
-    // Catatan: belum ada RemoteKey khusus utk deep-link app Smart Hub di domain
-    // model saat ini, jadi dipetakan ke SOURCE sbg placeholder. Untuk dukungan
-    // penuh, tambahkan RemoteKey baru (mis. APP_NETFLIX) lalu petakan di
-    // SamsungKeyMapper begitu protokol deep-link Smart Hub diimplementasikan.
     val height = (54 * scaleFactor).dp
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        AppShortcutButton("NETFLIX", NetflixRed, Modifier.weight(1f), height) { viewModel.sendKey(RemoteKey.SOURCE) }
-        AppShortcutButton("PRIME", PrimeBlue, Modifier.weight(1f), height) { viewModel.sendKey(RemoteKey.SOURCE) }
-        AppShortcutButton("YOUTUBE", YoutubeRed, Modifier.weight(1f), height) { viewModel.sendKey(RemoteKey.SOURCE) }
+        AppShortcutButton("NETFLIX", NetflixRed, Modifier.weight(1f), height) {
+            viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.NETFLIX.appId)
+        }
+        AppShortcutButton("PRIME", PrimeBlue, Modifier.weight(1f), height) {
+            viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.PRIME_VIDEO.appId)
+        }
+        AppShortcutButton("YOUTUBE", YoutubeRed, Modifier.weight(1f), height) {
+            viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.YOUTUBE.appId)
+        }
     }
 }
 

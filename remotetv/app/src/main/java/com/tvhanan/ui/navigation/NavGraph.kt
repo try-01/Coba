@@ -18,6 +18,7 @@ import com.tvhanan.ui.remote.RemoteViewModel
 import com.tvhanan.ui.scan.ScanScreen
 import com.tvhanan.ui.scan.ScanViewModel
 import com.tvhanan.ui.settings.SettingsScreen
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 object Routes {
@@ -44,7 +45,25 @@ fun TvRemoteNavGraph(
 ) {
     val scope = rememberCoroutineScope()
 
-    NavHost(navController = navController, startDestination = Routes.SCAN) {
+    // Cek apakah ada TV tersimpan dari sesi sebelumnya — kalau ada, langsung
+    // buka RemoteScreen-nya supaya user tidak perlu scan/manual ulang setiap
+    // kali masuk app. Dibungkus produceState supaya pengecekan DataStore
+    // (operasi suspend) tidak memblokir Composable pertama kali digambar.
+    val startRoute by androidx.compose.runtime.produceState<String?>(initialValue = null) {
+        val savedIp = serviceLocator.preferences.lastIp.first()
+        value = if (savedIp != null) {
+            val savedPort = serviceLocator.preferences.lastPort.first()?.toIntOrNull() ?: 8001
+            Routes.remoteRoute(savedIp, savedPort)
+        } else {
+            Routes.SCAN
+        }
+    }
+
+    // Selama startRoute belum ditentukan (masih null), tampilkan layar
+    // kosong sebentar daripada flicker ke ScanScreen dulu baru pindah.
+    if (startRoute == null) return
+
+    NavHost(navController = navController, startDestination = startRoute!!) {
         composable(Routes.SCAN) {
             val viewModel = remember {
                 ScanViewModel(
@@ -104,10 +123,22 @@ fun TvRemoteNavGraph(
                 )
             }
 
-            // Sinkronkan device aktif ke SettingsViewModel supaya TvInfoCard
-            // langsung akurat, tidak menunggu race condition DataStore.
-            androidx.compose.runtime.LaunchedEffect(ip, port) {
-                serviceLocator.settingsViewModel.setActiveDevice(ip, port, null)
+            // Sinkronkan device aktif ke SettingsViewModel begitu IP/port
+            // diketahui, lalu sinkronkan ULANG begitu status koneksi berubah
+            // jadi CONNECTED (saat itu token & MAC tersimpan sudah pasti final
+            // di DataStore, karena RemoteViewModel.connect() baru menulis token
+            // setelah pairing sukses).
+            val connectionStateForSync by viewModel.connectionState.collectAsState()
+            androidx.compose.runtime.LaunchedEffect(ip, port, connectionStateForSync) {
+                val mac = serviceLocator.preferences.macAddress.first()
+                val token = serviceLocator.preferences.getToken()
+                serviceLocator.settingsViewModel.setActiveDevice(
+                    ipAddress = ip,
+                    port = port,
+                    macAddress = mac,
+                    token = token,
+                    isConnected = connectionStateForSync == com.tvhanan.domain.model.ConnectionState.CONNECTED
+                )
             }
 
             // remoteSize dibaca dari SettingsViewModel singleton supaya preferensi

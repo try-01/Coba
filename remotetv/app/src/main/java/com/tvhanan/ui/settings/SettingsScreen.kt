@@ -77,7 +77,10 @@ fun SettingsScreen(
         ) {
             item { SettingsHeaderBar(onBack) }
 
-            item { TvInfoCard(device) }
+            item {
+                val isConnected by viewModel.isActuallyConnected.collectAsState()
+                TvInfoCard(device, isConnected)
+            }
 
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -260,7 +263,7 @@ private fun SettingsHeaderBar(onBack: () -> Unit) {
 }
 
 @Composable
-private fun TvInfoCard(device: TvDevice?) {
+private fun TvInfoCard(device: TvDevice?, isConnected: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -300,15 +303,17 @@ private fun TvInfoCard(device: TvDevice?) {
         }
 
         if (device != null) {
+            val statusColor = if (isConnected) ConnectedColor else DisconnectedColor
+            val statusLabel = if (isConnected) "Tersambung" else "Tidak tersambung"
             Row(
                 modifier = Modifier
-                    .background(ConnectedColor.copy(alpha = 0.15f), RoundedCornerShape(999.dp))
+                    .background(statusColor.copy(alpha = 0.15f), RoundedCornerShape(999.dp))
                     .padding(horizontal = 10.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(modifier = Modifier.size(6.dp).background(ConnectedColor, CircleShape))
+                Box(modifier = Modifier.size(6.dp).background(statusColor, CircleShape))
                 Spacer(modifier = Modifier.size(width = 6.dp, height = 1.dp))
-                Text("Tersambung", color = ConnectedColor, style = MaterialTheme.typography.bodySmall)
+                Text(statusLabel, color = statusColor, style = MaterialTheme.typography.bodySmall)
             }
 
             Column(
