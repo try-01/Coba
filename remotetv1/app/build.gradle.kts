@@ -87,3 +87,7 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.tooling.preview)
 }
+
+configurations.all {
+    exclude(group = "com.google.protobuf", module = "protobuf-java")
+}
