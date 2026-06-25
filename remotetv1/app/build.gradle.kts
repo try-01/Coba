@@ -91,3 +91,7 @@ dependencies {
 configurations.all {
     exclude(group = "com.google.protobuf", module = "protobuf-java")
 }
+
+kapt {
+    correctErrorTypes = true
+}

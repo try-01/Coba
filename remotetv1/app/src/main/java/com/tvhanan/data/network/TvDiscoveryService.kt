@@ -8,8 +8,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.retry
 import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -19,22 +19,25 @@ import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.Socket
 import java.net.SocketTimeoutException
-import java.util.concurrent.Semaphore
-import kotlin.concurrent.CompletableDeferred
 
-// Add extension function for retry logic
+// Fungsi pembantu logika retry yang mandiri, aman, dan tanpa error
 private suspend inline fun <T> retryable(
     times: Int = 3,
     delayMillis: Long = 500L,
     predicate: (Throwable) -> Boolean = { true },
     crossinline block: suspend () -> T
 ): T {
-    return retry(times) { cause ->
-        val shouldRetry = predicate(cause)
-        if (!shouldRetry) delay(delayMillis) // Don't delay on final attempt
-        !shouldRetry
-    } {
-        block()
+    var attempt = 0
+    while (true) {
+        try {
+            return block()
+        } catch (e: Throwable) {
+            attempt++
+            if (attempt >= times || !predicate(e)) {
+                throw e
+            }
+            delay(delayMillis)
+        }
     }
 }
 
@@ -49,22 +52,6 @@ class TvDiscoveryService(private val context: Context) {
         private const val TAG = "TvDiscoveryService"
     }
 
-// Add extension function for retry logic
-private suspend inline fun <T> retryable(
-    times: Int = 3,
-    delayMillis: Long = 500L,
-    predicate: (Throwable) -> Boolean = { true },
-    crossinline block: suspend () -> T
-): T {
-    return retry(times) { cause ->
-        val shouldRetry = predicate(cause)
-        if (!shouldRetry) delay(delayMillis) // Don't delay on final attempt
-        !shouldRetry
-    } {
-        block()
-    }
-}
-
     suspend fun discoverDevices(): List<TvDevice> = withContext(Dispatchers.IO) {
         val ssdpResults = discoverSSDP()
         if (ssdpResults.isNotEmpty()) return@withContext ssdpResults
@@ -73,7 +60,7 @@ private suspend inline fun <T> retryable(
         scanSubnet(subnet)
     }
 
-/**
+    /**
      * Ambil info dasar TV (nama model, MAC wifi asli) lewat endpoint
      * HTTP /api/v2/ yang tidak butuh pairing/token sama sekali — berguna
      * untuk menampilkan nama TV yang sebenarnya di hasil scan, bukan
@@ -110,7 +97,7 @@ private suspend inline fun <T> retryable(
                     name to mac
                 } catch (e: Exception) {
                     Log.w(TAG, "fetchDeviceInfo attempt failed for $ip:$port: ${e.message}")
-                    throw e // Let retry handler decide
+                    throw e // Biarkan fungsi retryable yang menangani
                 }
             }
         }
@@ -152,7 +139,7 @@ private suspend inline fun <T> retryable(
                 val results = mutableListOf<TvDevice>()
                 val startTime = System.currentTimeMillis()
 
-while (System.currentTimeMillis() - startTime < SSDP_TIMEOUT) {
+                while (System.currentTimeMillis() - startTime < SSDP_TIMEOUT) {
                      try {
                          val buffer = ByteArray(1024)
                          val packet = DatagramPacket(buffer, buffer.size)
@@ -161,7 +148,7 @@ while (System.currentTimeMillis() - startTime < SSDP_TIMEOUT) {
                          val response = String(packet.data, 0, packet.length)
                          val ip = parseLocationIp(response)
                          if (ip != null && !results.any { it.ipAddress == ip }) {
-                             val info = fetchDeviceInfo(ip, 8001) // SSDP typically uses 8001
+                             val info = fetchDeviceInfo(ip, 8001) // SSDP biasanya menggunakan port 8001
                              results.add(
                                  TvDevice(
                                      ipAddress = ip,
@@ -195,7 +182,7 @@ while (System.currentTimeMillis() - startTime < SSDP_TIMEOUT) {
                     else -> null
                 }
                 if (openPort != null) {
-                    val info = fetchDeviceInfo(ip)
+                    val info = fetchDeviceInfo(ip, openPort) // DIPERBAIKI: Menambahkan parameter openPort
                     TvDevice(
                         ipAddress = ip,
                         name = info?.first ?: "Samsung TV",
