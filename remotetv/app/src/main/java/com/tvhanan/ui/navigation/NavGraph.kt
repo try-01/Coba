@@ -104,6 +104,12 @@ fun TvRemoteNavGraph(
                 )
             }
 
+            // Sinkronkan device aktif ke SettingsViewModel supaya TvInfoCard
+            // langsung akurat, tidak menunggu race condition DataStore.
+            androidx.compose.runtime.LaunchedEffect(ip, port) {
+                serviceLocator.settingsViewModel.setActiveDevice(ip, port, null)
+            }
+
             // remoteSize dibaca dari SettingsViewModel singleton supaya preferensi
             // ukuran tampilan tetap sinkron walau RemoteScreen di-recreate
             // (mis. setelah kembali dari Settings, atau setelah rotasi layar).

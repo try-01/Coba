@@ -77,6 +77,12 @@ class SettingsViewModel(
         }
     }
 
+/** Dipanggil RemoteScreen begitu IP/port/mac aktif diketahui, supaya
+     * TvInfoCard di Settings langsung akurat tanpa menunggu DataStore. */
+    fun setActiveDevice(ipAddress: String, port: Int, macAddress: String?) {
+        _tvDevice.value = TvDevice(ipAddress = ipAddress, port = port, macAddress = macAddress)
+    }
+
     fun setHapticEnabled(enabled: Boolean) {
         _uiPreferences.value = _uiPreferences.value.copy(hapticEnabled = enabled)
     }

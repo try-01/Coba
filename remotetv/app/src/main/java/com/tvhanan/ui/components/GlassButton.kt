@@ -13,6 +13,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,7 +67,7 @@ fun GlassButton(
     // supaya GlassButton ini tidak perlu tahu soal Context/HapticUtil
     // sama sekali — menjaga komponen ini tetap reusable & tidak punya
     // side-effect tersembunyi).
-    androidx.compose.runtime.LaunchedEffect(isPressed) {
+    LaunchedEffect(isPressed) {
         onPressedChange?.invoke(isPressed)
     }
 
@@ -78,15 +79,15 @@ fun GlassButton(
 
     Box(
         modifier = modifier
-            .scale(scale)
-            .then(backgroundModifier)
-            .border(1.dp, if (isPressed) GlassBorderStrong else borderColor, shape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 enabled = enabled,
                 onClick = onClick
-            ),
+            )
+            .scale(scale)
+            .then(backgroundModifier)
+            .border(1.dp, if (isPressed) GlassBorderStrong else borderColor, shape),
         contentAlignment = Alignment.Center
     ) {
         CompositionLocalProvider(LocalContentColor provides contentColor) {

@@ -555,7 +555,7 @@ private fun ActionProgressDialog(actionState: ConnectionActionState, onDismiss: 
                     is ConnectionActionState.ReconnectSuccess -> "Berhasil terhubung"
                     is ConnectionActionState.ScanResult -> "${actionState.devices.size} TV ditemukan"
                     is ConnectionActionState.Failed -> "Gagal"
-                    ConnectionActionState.Idle -> ""
+                    ConnectionActionState.Idle -> "Tidak ada aksi"
                 }
             )
         },
@@ -590,7 +590,13 @@ private fun ActionProgressDialog(actionState: ConnectionActionState, onDismiss: 
                 is ConnectionActionState.Failed -> {
                     Text(actionState.message, color = DisconnectedColor, style = MaterialTheme.typography.bodyMedium)
                 }
-                ConnectionActionState.Idle -> {}
+                ConnectionActionState.Idle -> {
+                    Text(
+                        "Belum ada TV yang tersambung untuk dihubungkan ulang. Coba pindai atau sambungkan manual dahulu.",
+                        color = TextDim,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         },
         confirmButton = {
