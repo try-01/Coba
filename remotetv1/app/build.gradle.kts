@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.kapt)
-    alias(libs.plugins.hilt-android-gradle-plugin)
+    alias(libs.plugins.hilt.android.gradle.plugin)
 }
 
 android {
@@ -73,20 +73,20 @@ dependencies {
     implementation(libs.protobuf.kotlin)
 
     // Datastore Protobuf (optional, but we will use Proto DataStore)
-    implementation("androidx.datastore:datastore-core:1.0.0")
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation("androidx.datastore:datastore.core:1.0.0")
+    implementation("androidx.datastore:datastore.preferences:1.1.1")
 
     // Test dependencies
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.mockito:mockito-core:5.0.0")
-    testImplementation("org.mockito.kotlin:mockito-kotlin:4.0.0")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("org.mockito:mockito.core:5.0.0")
+    testImplementation("org.mockito.kotlin:mockito.kotlin:4.0.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx.coroutines.test:1.7.3")
     testImplementation("app.cash.turbine:turbine:1.0.0")
-    testImplementation("androidx.core:core-ktx:1.12.0")
+    testImplementation("androidx.core:core.ktx:1.12.0")
     testImplementation("androidx.test:core:1.5.0")
     testImplementation("androidx.test.ext:junit:1.1.5")
     testImplementation("org.robolectric:robolectric:4.12")
-    testImplementation("androidx.test.ext:junit-ktx:1.1.5")
+    testImplementation("androidx.test.ext:junit.ktx:1.1.5")
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.tooling.preview)
