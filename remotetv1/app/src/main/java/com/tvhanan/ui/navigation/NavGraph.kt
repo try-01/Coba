@@ -1,16 +1,16 @@
 package com.tvhanan.ui.navigation
 
+import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.tvhanan.di.ServiceLocator
+import com.tvhanan.data.local.TvPreferences
 import com.tvhanan.domain.model.TvDevice
 import com.tvhanan.ui.manual.ManualConnectScreen
 import com.tvhanan.ui.remote.RemoteScreen
@@ -18,8 +18,8 @@ import com.tvhanan.ui.remote.RemoteViewModel
 import com.tvhanan.ui.scan.ScanScreen
 import com.tvhanan.ui.scan.ScanViewModel
 import com.tvhanan.ui.settings.SettingsScreen
+import com.tvhanan.ui.settings.SettingsViewModel
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
 object Routes {
     const val SCAN = "scan"
@@ -40,19 +40,19 @@ object Routes {
 @Composable
 fun TvRemoteNavGraph(
     navController: NavHostController,
-    serviceLocator: ServiceLocator,
     onExitApp: () -> Unit
 ) {
-    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val preferences = TvPreferences(context)
 
     // Cek apakah ada TV tersimpan dari sesi sebelumnya — kalau ada, langsung
     // buka RemoteScreen-nya supaya user tidak perlu scan/manual ulang setiap
     // kali masuk app. Dibungkus produceState supaya pengecekan DataStore
     // (operasi suspend) tidak memblokir Composable pertama kali digambar.
     val startRoute by androidx.compose.runtime.produceState<String?>(initialValue = null) {
-        val savedIp = serviceLocator.preferences.lastIp.first()
+        val savedIp = preferences.lastIp.first()
         value = if (savedIp != null) {
-            val savedPort = serviceLocator.preferences.lastPort.first()?.toIntOrNull() ?: 8001
+            val savedPort = preferences.lastPort.first()?.toIntOrNull() ?: 8001
             Routes.remoteRoute(savedIp, savedPort)
         } else {
             Routes.SCAN
@@ -65,19 +65,11 @@ fun TvRemoteNavGraph(
 
     NavHost(navController = navController, startDestination = startRoute!!) {
         composable(Routes.SCAN) {
-            val viewModel = remember {
-                ScanViewModel(
-                    discoveryService = serviceLocator.discoveryService,
-                    preferences = serviceLocator.preferences
-                )
-            }
+            val viewModel: ScanViewModel = hiltViewModel()
             ScanScreen(
                 viewModel = viewModel,
                 onDeviceSelected = { device ->
-                    scope.launch {
-                        serviceLocator.preferences.saveLastIp(device.ipAddress)
-                        serviceLocator.preferences.saveLastPort(device.port.toString())
-                    }
+                    viewModel.savePreferredDevice(device)
                     navController.navigate(Routes.remoteRoute(device))
                 },
                 onManualConnect = {
@@ -89,11 +81,8 @@ fun TvRemoteNavGraph(
         composable(Routes.MANUAL) {
             ManualConnectScreen(
                 onConnect = { device ->
-                    scope.launch {
-                        serviceLocator.preferences.saveLastIp(device.ipAddress)
-                        serviceLocator.preferences.saveLastPort(device.port.toString())
-                        device.macAddress?.let { serviceLocator.preferences.saveMacAddress(it) }
-                    }
+                    val viewModel: ScanViewModel = hiltViewModel()
+                    viewModel.savePreferredDevice(device)
                     navController.navigate(Routes.remoteRoute(device)) {
                         popUpTo(Routes.SCAN)
                     }
@@ -111,17 +100,9 @@ fun TvRemoteNavGraph(
                 navArgument("port") { type = NavType.IntType; defaultValue = 8001 }
             )
         ) { backStackEntry ->
+            val viewModel: RemoteViewModel = hiltViewModel(backStackEntry)
             val ip = backStackEntry.arguments?.getString("ip") ?: return@composable
             val port = backStackEntry.arguments?.getInt("port") ?: 8001
-
-            val viewModel = remember(ip, port) {
-                RemoteViewModel(
-                    ipAddress = ip,
-                    port = port,
-                    macAddress = null,
-                    preferences = serviceLocator.preferences
-                )
-            }
 
             // Sinkronkan device aktif ke SettingsViewModel begitu IP/port
             // diketahui, lalu sinkronkan ULANG begitu status koneksi berubah
@@ -132,9 +113,10 @@ fun TvRemoteNavGraph(
 
             // Sinkronisasi awal: begitu ip/port/status koneksi berubah.
             androidx.compose.runtime.LaunchedEffect(ip, port, connectionStateForSync) {
-                val mac = serviceLocator.preferences.macAddress.first()
-                val token = serviceLocator.preferences.getToken()
-                serviceLocator.settingsViewModel.setActiveDevice(
+                val mac = preferences.macAddress.first()
+                val token = preferences.getToken()
+                val settingsViewModel: SettingsViewModel = hiltViewModel()
+                settingsViewModel.setActiveDevice(
                     ipAddress = ip,
                     port = port,
                     macAddress = mac,
@@ -151,8 +133,9 @@ fun TvRemoteNavGraph(
             // event token baru dari WebSocketClient, lalu re-sync.
             androidx.compose.runtime.LaunchedEffect(ip, port) {
                 viewModel.observeNewToken { newToken ->
-                    val mac = serviceLocator.preferences.macAddress.first()
-                    serviceLocator.settingsViewModel.setActiveDevice(
+                    val mac = preferences.macAddress.first()
+                    val settingsViewModel: SettingsViewModel = hiltViewModel()
+                    settingsViewModel.setActiveDevice(
                         ipAddress = ip,
                         port = port,
                         macAddress = mac,
@@ -165,7 +148,7 @@ fun TvRemoteNavGraph(
             // remoteSize dibaca dari SettingsViewModel singleton supaya preferensi
             // ukuran tampilan tetap sinkron walau RemoteScreen di-recreate
             // (mis. setelah kembali dari Settings, atau setelah rotasi layar).
-            val uiPrefs by serviceLocator.settingsViewModel.uiPreferences.collectAsState()
+            val uiPrefs by hiltViewModel<SettingsViewModel>().uiPreferences.collectAsState()
 
             RemoteScreen(
                 viewModel = viewModel,
@@ -177,8 +160,9 @@ fun TvRemoteNavGraph(
         }
 
         composable(Routes.SETTINGS) {
+            val viewModel: SettingsViewModel = hiltViewModel()
             SettingsScreen(
-                viewModel = serviceLocator.settingsViewModel,
+                viewModel = viewModel,
                 onBack = {
                     navController.popBackStack()
                 },

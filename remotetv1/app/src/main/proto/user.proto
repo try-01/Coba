@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option java_package = "com.tvhanan.datastore";
+option java_multiple_files = true;
+
+message UserPreferences {
+  string last_ip = 1;
+  string last_port = 2;
+  string token = 3;
+  string mac_address = 4;
+  bool haptic_feedback = 5;
+  int32 remote_size = 6; // 0=small, 1=medium, 2=large
+  bool show_tooltips = 7;
+  string theme = 8; // "light", "dark", "system"
+}

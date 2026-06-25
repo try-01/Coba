@@ -8,19 +8,23 @@ import com.tvhanan.data.network.TvWebSocketClient
 import com.tvhanan.data.network.WakeOnLanUtil
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
+import dagger.Assisted
+import dagger.hilt.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class RemoteViewModel(
-    private val ipAddress: String,
-    private val port: Int = 8001,
-    private val macAddress: String? = null,
-    private val webSocketClient: TvWebSocketClient = TvWebSocketClient(),
-    private val preferences: TvPreferences? = null
+@HiltViewModel
+class RemoteViewModel @AssistedInject constructor(
+    @Assisted private val ipAddress: String,
+    @Assisted private val port: Int = 8001,
+    private val webSocketClient: TvWebSocketClient,
+    private val preferences: TvPreferences
 ) : ViewModel() {
 
     companion object {
@@ -49,7 +53,7 @@ class RemoteViewModel(
     fun connect() {
         Log.d(TAG, "connect() called for $ipAddress")
         viewModelScope.launch {
-            val savedToken = preferences?.getToken()
+            val savedToken = preferences.getToken()
             Log.d(TAG, "savedToken = ${if (savedToken == null) "null" else "exists"}")
 
             val result = webSocketClient.connectWithFallback(ipAddress, savedToken)
@@ -61,7 +65,7 @@ class RemoteViewModel(
                         val newToken = webSocketClient.tokenReceived
                             .filterNotNull()
                             .first()
-                        preferences?.saveToken(newToken)
+                        preferences.saveToken(newToken)
                         _lastSavedToken.value = newToken
                         Log.d(TAG, "First token saved: $newToken")
                     }
@@ -105,7 +109,8 @@ class RemoteViewModel(
     }
 
     fun wakeOnLan() {
-        macAddress?.let { mac ->
+        val mac = preferences.macAddress.firstOrNull()
+        if (mac != null) {
             WakeOnLanUtil.sendWakeOnLan(mac)
         }
     }
