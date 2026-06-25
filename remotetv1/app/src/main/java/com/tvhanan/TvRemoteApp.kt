@@ -13,4 +13,3 @@ class TvRemoteApp : Application() {
         HapticUtil.init(this)
     }
 }
-}

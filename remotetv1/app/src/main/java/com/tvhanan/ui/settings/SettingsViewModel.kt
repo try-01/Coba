@@ -24,7 +24,7 @@ class SettingsViewModel @Inject constructor(
     private val _uiPreferences = MutableStateFlow(UiPrefs())
     val uiPreferences: StateFlow<UiPrefs> = _uiPreferences.asStateFlow()
 
-    private val _tvDevice = MutableStateFlow<**(device: TvDevice?)?**()
+    private val _tvDevice = MutableStateFlow<TvDevice?>(null)
     val tvDevice: StateFlow<TvDevice?> = _tvDevice.asStateFlow()
 
     private val _actionState = MutableStateFlow(ConnectionActionState.Idle)
