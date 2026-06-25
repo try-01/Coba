@@ -20,7 +20,8 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 TvRemoteNavGraph(
                     navController = navController,
-                    serviceLocator = app.serviceLocator
+                    serviceLocator = app.serviceLocator,
+                    onExitApp = { finish() }
                 )
             }
         }

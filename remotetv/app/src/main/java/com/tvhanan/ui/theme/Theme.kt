@@ -1,20 +1,25 @@
 package com.tvhanan.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme = darkColorScheme(
+/**
+ * Dark-mode-only secara sengaja: app ini dipakai sambil menonton TV,
+ * biasanya di ruangan gelap. Tidak ada dynamicColor/light theme supaya
+ * identitas warna (mesh gradient + aksen teal/oranye) konsisten dan
+ * tidak berubah ikut wallpaper user.
+ */
+private val TvDarkColorScheme = darkColorScheme(
     primary = NavAccent,
     secondary = NavAccent2,
     tertiary = AccentWarn,
     background = BgBase,
-    surface = GlassSurface,
+    surface = BgBase,
     surfaceVariant = GlassSurface,
+    onBackground = TextPrimary,
+    onSurface = TextPrimary,
+    onSurfaceVariant = TextDim,
     error = DisconnectedColor
 )
 
@@ -22,14 +27,8 @@ private val DarkColorScheme = darkColorScheme(
 fun TvRemoteTheme(
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        dynamicDarkColorScheme(LocalContext.current)
-    } else {
-        DarkColorScheme
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = TvDarkColorScheme,
         typography = RemoteTypography,
         content = content
     )

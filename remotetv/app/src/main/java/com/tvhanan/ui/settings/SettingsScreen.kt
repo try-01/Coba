@@ -1,42 +1,48 @@
 package com.tvhanan.ui.settings
 
-import android.app.Activity
-import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.tvhanan.domain.model.TvDevice
-import com.tvhanan.ui.components.GlassButton
+import com.tvhanan.ui.components.HapticGlassButton
 import com.tvhanan.ui.components.MeshGradientBackground
-import com.tvhanan.ui.theme.BgBase
+import com.tvhanan.ui.components.ZoneLabel
 import com.tvhanan.ui.theme.ConnectedColor
 import com.tvhanan.ui.theme.DisconnectedColor
 import com.tvhanan.ui.theme.GlassBorder
-import com.tvhanan.ui.theme.GlassBorderStrong
 import com.tvhanan.ui.theme.GlassSurface
-import com.tvhanan.ui.theme.GlassSurfacePressed
 import com.tvhanan.ui.theme.NavAccent
 import com.tvhanan.ui.theme.NavAccent2
 import com.tvhanan.ui.theme.TextDim
@@ -46,195 +52,221 @@ import com.tvhanan.ui.theme.TextPrimary
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
-    tvDevice: TvDevice?,
     onBack: () -> Unit,
-    onNavigateToScan: () -> Unit,
-    onNavigateToManual: () -> Unit,
-    onForgetTv: () -> Unit,
-    onExit: () -> Unit,
-    onShowFeedback: () -> Unit
+    onManualConnect: (String) -> Unit,
+    onForgetAndExitToScan: () -> Unit,
+    onExitApp: () -> Unit
 ) {
-    val hapticEnabled by viewModel.hapticEnabled.collectAsState()
-    val screenOnEnabled by viewModel.screenOnEnabled.collectAsState()
-    val meshEnabled by viewModel.meshBackground.collectAsState()
-    val remoteSize by viewModel.remoteSize.collectAsState()
-    val event by viewModel.events.collectAsState()
+    val device by viewModel.tvDevice.collectAsState()
+    val prefs by viewModel.uiPreferences.collectAsState()
+    val actionState by viewModel.actionState.collectAsState()
 
-    val context = LocalContext.current
-
-    LaunchedEffect(event) {
-        when (event) {
-            SettingsEvent.NavigateToScan -> onNavigateToScan()
-            SettingsEvent.NavigateToManual -> onNavigateToManual()
-            SettingsEvent.NavigateToScanOnForget -> {
-                onForgetTv()
-                onNavigateToScan()
-            }
-            SettingsEvent.ExitApp -> onExit()
-            SettingsEvent.ShowFeedback -> onShowFeedback()
-            null -> {}
-        }
-        viewModel.onEventHandled()
-    }
+    var showManualDialog by remember { mutableStateOf(false) }
+    var showForgetDialog by remember { mutableStateOf(false) }
+    var showExitDialog by remember { mutableStateOf(false) }
+    var showActionDialog by remember { mutableStateOf(false) }
+    var pendingAction by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        MeshGradientBackground(Modifier.fillMaxSize())
+        MeshGradientBackground(modifier = Modifier.fillMaxSize())
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(18.dp),
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(18.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            SettingsHeader(onBack = onBack)
+            item { SettingsHeaderBar(onBack) }
 
-            TvInfoCard(device = tvDevice)
+            item { TvInfoCard(device) }
 
-            SettingsGroup(
-                label = "Koneksi"
-            ) {
-                SettingsRow(
-                    icon = IconPaths.wifi,
-                    title = "Hubungkan ulang TV",
-                    desc = "Cari ulang & sambungkan ke TV ini",
-                    onClick = { onNavigateToScan() }
-                )
-                SettingsRow(
-                    icon = IconPaths.search,
-                    title = "Pindai TV lain",
-                    desc = "Tambahkan TV baru di jaringan",
-                    onClick = onNavigateToScan
-                )
-                SettingsRow(
-                    icon = IconPaths.edit,
-                    title = "Sambungkan manual",
-                    desc = "Masukkan IP TV secara langsung",
-                    onClick = onNavigateToManual
-                )
-                SettingsRow(
-                    icon = IconPaths.refresh,
-                    title = "Lupakan TV ini",
-                    desc = "Hapus token & data koneksi tersimpan",
-                    danger = true,
-                    onClick = { viewModel.forgetTv() }
-                )
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ZoneLabel("Koneksi", accentColor = NavAccent)
+                    SettingsGroup {
+                        SettingsRow(
+                            title = "Hubungkan ulang TV",
+                            description = "Cari ulang & sambungkan ke TV ini",
+                            onClick = {
+                                pendingAction = "reconnect"
+                                showActionDialog = true
+                                viewModel.reconnect()
+                            }
+                        )
+                        SettingsRow(
+                            title = "Pindai TV lain",
+                            description = "Tambahkan TV baru di jaringan",
+                            onClick = {
+                                pendingAction = "scan"
+                                showActionDialog = true
+                                viewModel.scanForOtherTvs()
+                            }
+                        )
+                        SettingsRow(
+                            title = "Sambungkan manual",
+                            description = "Masukkan IP TV secara langsung",
+                            onClick = { showManualDialog = true }
+                        )
+                        SettingsRow(
+                            title = "Lupakan TV ini",
+                            description = "Hapus token & data koneksi tersimpan",
+                            isLast = true,
+                            onClick = { showForgetDialog = true }
+                        )
+                    }
+                }
             }
 
-            SettingsGroup(
-                label = "Tampilan & Pengalaman"
-            ) {
-                SettingsToggleRow(
-                    icon = IconPaths.bell,
-                    title = "Getar saat tombol ditekan",
-                    desc = "Haptic feedback tiap tap",
-                    checked = hapticEnabled,
-                    onCheckedChange = { viewModel.toggleHaptic(it) }
-                )
-                SettingsToggleRow(
-                    icon = IconPaths.sun,
-                    title = "Tetap terang di tangan",
-                    desc = "Cegah layar HP redup saat dipakai",
-                    checked = screenOnEnabled,
-                    onCheckedChange = { viewModel.toggleScreenOn(it) }
-                )
-                SettingsToggleRow(
-                    icon = IconPaths.moon,
-                    title = "Latar belakang dinamis",
-                    desc = "Efek aurora di background app",
-                    checked = meshEnabled,
-                    onCheckedChange = { viewModel.toggleMeshBackground(it) }
-                )
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ZoneLabel("Tampilan & Pengalaman", accentColor = NavAccent2)
+                    SettingsGroup {
+                        SettingsToggleRow(
+                            title = "Getar saat tombol ditekan",
+                            description = "Haptic feedback tiap tap",
+                            checked = prefs.hapticEnabled,
+                            onCheckedChange = viewModel::setHapticEnabled
+                        )
+                        SettingsToggleRow(
+                            title = "Tetap terang di tangan",
+                            description = "Cegah layar HP redup saat dipakai",
+                            checked = prefs.keepScreenOn,
+                            onCheckedChange = viewModel::setKeepScreenOn
+                        )
+                        SettingsToggleRow(
+                            title = "Latar belakang dinamis",
+                            description = "Efek aurora di background app",
+                            checked = prefs.meshBackgroundEnabled,
+                            onCheckedChange = viewModel::setMeshBackgroundEnabled,
+                            isLast = true
+                        )
+                    }
+                }
             }
 
-            SettingsGroup(
-                label = "Ukuran Tampilan Remote"
-            ) {
-                RemoteSizeSelector(
-                    selected = remoteSize,
-                    onSelect = { viewModel.setRemoteSize(it) }
-                )
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ZoneLabel("Ukuran Tampilan Remote", accentColor = TextDim)
+                    SizeSelector(
+                        current = prefs.remoteSize,
+                        onSelect = viewModel::setRemoteSize
+                    )
+                    Text(
+                        text = "Sesuaikan ukuran tombol remote agar pas dengan layar HP kamu.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextFaint,
+                        modifier = Modifier.padding(horizontal = 6.dp)
+                    )
+                }
             }
 
-            SettingsGroup(
-                label = "Lainnya"
-            ) {
-                SettingsRow(
-                    icon = IconPaths.info,
-                    title = "Tentang aplikasi",
-                    desc = "Versi, lisensi, dan info build",
-                    trailing = { Text("v1.0.0", color = TextDim, fontSize = 12.sp) },
-                    onClick = {}
-                )
-                SettingsRow(
-                    icon = IconPaths.chat,
-                    title = "Kirim masukan",
-                    desc = "Laporkan bug atau saran fitur",
-                    onClick = { viewModel.feedback() }
-                )
-                SettingsRow(
-                    icon = IconPaths.logout,
-                    title = "Keluar dari aplikasi",
-                    desc = "Tutup remote sepenuhnya",
-                    danger = true,
-                    onClick = { viewModel.exitApp() }
-                )
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ZoneLabel("Lainnya", accentColor = TextFaint)
+                    SettingsGroup {
+                        SettingsRow(
+                            title = "Tentang aplikasi",
+                            description = "Versi, lisensi, dan info build",
+                            trailingText = "v1.0.0",
+                            onClick = {}
+                        )
+                        SettingsRow(
+                            title = "Keluar dari aplikasi",
+                            description = "Tutup remote sepenuhnya",
+                            isDanger = true,
+                            isLast = true,
+                            onClick = { showExitDialog = true }
+                        )
+                    }
+                }
             }
 
-            Text(
-                text = "TV Remote · versi 1.0.0 (build 26062201)",
-                color = TextFaint,
-                fontSize = 11.sp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 6.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
+            item {
+                Text(
+                    text = "TV Remote · versi 1.0.0",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextFaint,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
         }
     }
-}
 
-@Composable
-private fun SettingsHeader(onBack: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 10.dp)
-    ) {
-        GlassButton(
-            onClick = onBack,
-            modifier = Modifier.size(38.dp),
-            cornerRadius = 50,
-            hapticFeedback = true
-        ) {
-            Text(
-                text = "\u2190",
-                color = TextPrimary,
-                fontSize = 18.sp
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = "Pengaturan",
-            color = TextPrimary,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold
+    if (showManualDialog) {
+        ManualIpDialog(
+            onDismiss = { showManualDialog = false },
+            onConfirm = { typedIp ->
+                showManualDialog = false
+                if (typedIp.isNotBlank()) {
+                    onManualConnect(typedIp.trim())
+                }
+            }
+        )
+    }
+
+    if (showForgetDialog) {
+        ConfirmDialog(
+            title = "Lupakan TV ini?",
+            description = "Token & data koneksi akan dihapus. Kamu perlu menyetujui ulang permintaan koneksi di TV saat menyambung lagi.",
+            confirmLabel = "Lupakan",
+            isDanger = true,
+            onDismiss = { showForgetDialog = false },
+            onConfirm = {
+                showForgetDialog = false
+                viewModel.forgetTv()
+                onForgetAndExitToScan()
+            }
+        )
+    }
+
+    if (showExitDialog) {
+        ConfirmDialog(
+            title = "Keluar dari aplikasi?",
+            description = "Remote akan ditutup sepenuhnya. Koneksi ke TV tetap tersimpan untuk dipakai lagi nanti.",
+            confirmLabel = "Keluar",
+            isDanger = true,
+            onDismiss = { showExitDialog = false },
+            onConfirm = {
+                showExitDialog = false
+                onExitApp()
+            }
+        )
+    }
+
+    if (showActionDialog) {
+        ActionProgressDialog(
+            actionState = actionState,
+            onDismiss = {
+                showActionDialog = false
+                viewModel.resetActionState()
+            }
         )
     }
 }
 
 @Composable
-private fun TvInfoCard(device: TvDevice?) {
-    if (device == null) return
+private fun SettingsHeaderBar(onBack: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        HapticGlassButton(
+            onClick = onBack,
+            modifier = Modifier.size(38.dp),
+            shape = CircleShape
+        ) {
+            Text("\u2190", color = TextPrimary, style = MaterialTheme.typography.bodyLarge)
+        }
+        Spacer(modifier = Modifier.size(width = 12.dp, height = 1.dp))
+        Text("Pengaturan", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+    }
+}
 
+@Composable
+private fun TvInfoCard(device: TvDevice?) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                Brush.linearGradient(
-                    colors = listOf(
-                        NavAccent.copy(alpha = 0.10f),
-                        NavAccent2.copy(alpha = 0.07f)
-                    )
+                androidx.compose.ui.graphics.Brush.linearGradient(
+                    listOf(NavAccent.copy(alpha = 0.10f), NavAccent2.copy(alpha = 0.07f))
                 ),
                 RoundedCornerShape(22.dp)
             )
@@ -246,166 +278,126 @@ private fun TvInfoCard(device: TvDevice?) {
             Box(
                 modifier = Modifier
                     .size(50.dp)
-                    .background(color = GlassSurface, shape = RoundedCornerShape(16.dp))
+                    .background(GlassSurface, RoundedCornerShape(16.dp))
                     .border(1.dp, GlassBorder, RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "\u2302",
-                    color = NavAccent,
-                    fontSize = 24.sp
-                )
+                Text("\uD83D\uDCFA", style = MaterialTheme.typography.titleLarge)
             }
-            Spacer(Modifier.width(14.dp))
+            Spacer(modifier = Modifier.size(width = 14.dp, height = 1.dp))
             Column {
                 Text(
-                    text = device.name,
-                    color = TextPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold
+                    text = device?.name ?: "Belum ada TV tersambung",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextPrimary
                 )
                 Text(
                     text = "N-Series · Tizen 5.0",
-                    color = TextDim,
-                    fontSize = 12.sp
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextDim
                 )
             }
         }
 
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .background(ConnectedColor.copy(alpha = 0.15f))
-                .padding(horizontal = 10.dp, vertical = 3.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
+        if (device != null) {
+            Row(
                 modifier = Modifier
-                    .size(6.dp)
-                    .background(color = ConnectedColor, shape = RoundedCornerShape(3.dp))
+                    .background(ConnectedColor.copy(alpha = 0.15f), RoundedCornerShape(999.dp))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(modifier = Modifier.size(6.dp).background(ConnectedColor, CircleShape))
+                Spacer(modifier = Modifier.size(width = 6.dp, height = 1.dp))
+                Text("Tersambung", color = ConnectedColor, style = MaterialTheme.typography.bodySmall)
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
+            ) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    MetaItem("Alamat IP", device.ipAddress, Modifier.weight(1f))
+                    MetaItem("Port", "${device.port}", Modifier.weight(1f))
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    MetaItem("Alamat MAC", device.macAddress ?: "Tidak diketahui", Modifier.weight(1f))
+                    MetaItem("Token tersimpan", if (device.token != null) "Ya" else "Belum", Modifier.weight(1f))
+                }
+            }
+        } else {
+            Text(
+                text = "Hubungkan ke TV lewat menu Koneksi di bawah.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextDim
             )
-            Spacer(Modifier.width(6.dp))
-            Text("Terhubung", color = ConnectedColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            MetaItem("Alamat IP", device.ipAddress)
-            MetaItem("Port", "8001 (WS)")
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            MetaItem("Alamat MAC", device.macAddress ?: "-")
-            MetaItem("Sinyal", "Bagus")
         }
     }
 }
 
 @Composable
-private fun MetaItem(label: String, value: String) {
-    Column {
-        Text(
-            text = label,
-            color = TextFaint,
-            fontSize = 10.sp,
-            letterSpacing = 0.06.sp
-        )
-        Text(
-            text = value,
-            color = TextPrimary,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium
-        )
+private fun MetaItem(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = TextFaint)
+        Spacer(modifier = Modifier.height(3.dp))
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
     }
 }
 
 @Composable
-private fun SettingsGroup(
-    label: String,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Column {
-        Text(
-            text = label,
-            color = TextFaint,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.10.sp,
-            modifier = Modifier.padding(start = 6.dp, bottom = 4.dp)
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(color = GlassSurface, shape = RoundedCornerShape(18.dp))
-                .border(1.dp, GlassBorder, RoundedCornerShape(18.dp)),
-            content = content
-        )
+private fun SettingsGroup(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(GlassSurface, RoundedCornerShape(18.dp))
+            .border(1.dp, GlassBorder, RoundedCornerShape(18.dp))
+    ) {
+        content()
     }
 }
 
 @Composable
 private fun SettingsRow(
-    icon: String,
     title: String,
-    desc: String,
-    danger: Boolean = false,
-    trailing: @Composable (() -> Unit)? = null,
-    onClick: () -> Unit
+    description: String,
+    onClick: () -> Unit,
+    trailingText: String? = null,
+    isDanger: Boolean = false,
+    isLast: Boolean = false
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(0.75f)
+    Column {
+        HapticGlassButton(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(0.dp),
+            borderColor = Color.Transparent
         ) {
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(34.dp)
-                    .background(color = GlassSurface, shape = RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = icon,
-                    color = if (danger) DisconnectedColor else TextDim,
-                    fontSize = 16.sp
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = title,
-                    color = if (danger) DisconnectedColor else TextPrimary,
-                    fontSize = 13.5.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = desc,
-                    color = TextFaint,
-                    fontSize = 11.5.sp
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (isDanger) DisconnectedColor.copy(alpha = 0.9f) else TextPrimary
+                    )
+                    Text(description, style = MaterialTheme.typography.bodySmall, color = TextFaint)
+                }
+                if (trailingText != null) {
+                    Text(trailingText, style = MaterialTheme.typography.bodyMedium, color = TextDim)
+                }
             }
         }
-        if (trailing != null) {
-            trailing()
-        } else if (!danger) {
-            Text(
-                text = "\u203A",
-                color = TextFaint,
-                fontSize = 18.sp
+        if (!isLast) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(GlassBorder)
             )
         }
     }
@@ -413,129 +405,198 @@ private fun SettingsRow(
 
 @Composable
 private fun SettingsToggleRow(
-    icon: String,
     title: String,
-    desc: String,
+    description: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    isLast: Boolean = false
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = { onCheckedChange(!checked) }
-            )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
+    Column {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(0.75f)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .background(color = GlassSurface, shape = RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = icon,
-                    color = TextDim,
-                    fontSize = 16.sp
-                )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+                Text(description, style = MaterialTheme.typography.bodySmall, color = TextFaint)
             }
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = title,
-                    color = TextPrimary,
-                    fontSize = 13.5.sp,
-                    fontWeight = FontWeight.Medium
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = NavAccent,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = TextFaint
                 )
-                Text(
-                    text = desc,
-                    color = TextFaint,
-                    fontSize = 11.5.sp
-                )
-            }
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = NavAccent,
-                uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = Color.White.copy(alpha = 0.12f)
             )
+        }
+        if (!isLast) {
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(GlassBorder))
+        }
+    }
+}
+
+@Composable
+private fun SizeSelector(current: RemoteSize, onSelect: (RemoteSize) -> Unit) {
+    SettingsGroup {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SizeChip("Kompak", RemoteSize.COMPACT, current, onSelect, Modifier.weight(1f))
+            SizeChip("Pas di layar", RemoteSize.FIT, current, onSelect, Modifier.weight(1f))
+            SizeChip("Besar", RemoteSize.LARGE, current, onSelect, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun SizeChip(
+    label: String,
+    value: RemoteSize,
+    current: RemoteSize,
+    onSelect: (RemoteSize) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isActive = current == value
+    HapticGlassButton(
+        onClick = { onSelect(value) },
+        modifier = modifier.height(40.dp),
+        shape = RoundedCornerShape(999.dp),
+        gradientColors = if (isActive) listOf(NavAccent.copy(alpha = 0.22f), NavAccent2.copy(alpha = 0.18f)) else null,
+        borderColor = if (isActive) NavAccent.copy(alpha = 0.4f) else GlassBorder
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isActive) TextPrimary else TextDim
         )
     }
 }
 
 @Composable
-private fun RemoteSizeSelector(
-    selected: String,
-    onSelect: (String) -> Unit
-) {
-    val options = listOf(
-        "compact" to "Kompak",
-        "fit" to "Pas di layar",
-        "large" to "Besar"
-    )
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        options.forEach { (value, label) ->
-            val isActive = selected == value
-            val bgModifier = if (isActive) {
-                Modifier.background(Brush.linearGradient(listOf(NavAccent, NavAccent2)))
-            } else {
-                Modifier.background(GlassSurface)
-            }
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .then(bgModifier)
-                    .border(
-                        1.dp,
-                        if (isActive) NavAccent.copy(alpha = 0.4f) else GlassBorder,
-                        RoundedCornerShape(999.dp)
-                    )
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { onSelect(value) }
-                    )
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
+private fun ManualIpDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var ip by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Sambungkan manual") },
+        text = {
+            Column {
                 Text(
-                    text = label,
-                    color = if (isActive) Color(0xFF06201c) else TextDim,
-                    fontSize = 12.sp,
-                    fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal
+                    "Masukkan alamat IP TV yang terlihat di Menu > Network > Network Status pada TV.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextDim
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = ip,
+                    onValueChange = { ip = it },
+                    placeholder = { Text("192.168.1.42") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
+        },
+        confirmButton = {
+            HapticGlassButton(onClick = { onConfirm(ip) }, modifier = Modifier.height(40.dp)) {
+                Text("Sambungkan", color = TextPrimary, style = MaterialTheme.typography.bodyMedium)
+            }
+        },
+        dismissButton = {
+            HapticGlassButton(onClick = onDismiss, modifier = Modifier.height(40.dp), borderColor = Color.Transparent) {
+                Text("Batal", color = TextDim, style = MaterialTheme.typography.bodyMedium)
+            }
         }
-    }
+    )
 }
 
-object IconPaths {
-    val wifi = "\u25C8"
-    val search = "\u2315"
-    val edit = "\u270E"
-    val refresh = "\u21BB"
-    val bell = "\u2661"
-    val sun = "\u2600"
-    val moon = "\u263E"
-    val info = "\u24D8"
-    val chat = "\u2709"
-    val logout = "\u21AA"
+@Composable
+private fun ConfirmDialog(
+    title: String,
+    description: String,
+    confirmLabel: String,
+    isDanger: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(description, style = MaterialTheme.typography.bodyMedium, color = TextDim) },
+        confirmButton = {
+            HapticGlassButton(
+                onClick = onConfirm,
+                modifier = Modifier.height(40.dp),
+                gradientColors = if (isDanger) listOf(Color(0xFFFF5A5A), Color(0xFFFF3D7A)) else null
+            ) {
+                Text(confirmLabel, color = Color.White, style = MaterialTheme.typography.bodyMedium)
+            }
+        },
+        dismissButton = {
+            HapticGlassButton(onClick = onDismiss, modifier = Modifier.height(40.dp), borderColor = Color.Transparent) {
+                Text("Batal", color = TextDim, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    )
+}
+
+@Composable
+private fun ActionProgressDialog(actionState: ConnectionActionState, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                when (actionState) {
+                    is ConnectionActionState.Loading -> "Memproses…"
+                    is ConnectionActionState.ReconnectSuccess -> "Berhasil terhubung"
+                    is ConnectionActionState.ScanResult -> "${actionState.devices.size} TV ditemukan"
+                    is ConnectionActionState.Failed -> "Gagal"
+                    ConnectionActionState.Idle -> ""
+                }
+            )
+        },
+        text = {
+            when (actionState) {
+                is ConnectionActionState.Loading -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = NavAccent)
+                        Spacer(modifier = Modifier.size(width = 10.dp, height = 1.dp))
+                        Text("Menghubungi TV di jaringan…", color = TextDim, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                is ConnectionActionState.ReconnectSuccess -> {
+                    Text(
+                        "${actionState.device.name} siap dikendalikan.",
+                        color = TextDim,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                is ConnectionActionState.ScanResult -> {
+                    if (actionState.devices.isEmpty()) {
+                        Text("Tidak ada TV ditemukan di jaringan ini.", color = TextDim, style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                        Column {
+                            actionState.devices.forEach { d ->
+                                Text("${d.name} — ${d.ipAddress}", color = TextPrimary, style = MaterialTheme.typography.bodyMedium)
+                                Spacer(modifier = Modifier.height(6.dp))
+                            }
+                        }
+                    }
+                }
+                is ConnectionActionState.Failed -> {
+                    Text(actionState.message, color = DisconnectedColor, style = MaterialTheme.typography.bodyMedium)
+                }
+                ConnectionActionState.Idle -> {}
+            }
+        },
+        confirmButton = {
+            HapticGlassButton(onClick = onDismiss, modifier = Modifier.height(40.dp)) {
+                Text("Tutup", color = TextPrimary, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    )
 }

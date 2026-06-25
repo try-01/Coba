@@ -35,6 +35,15 @@ class TvDiscoveryService(private val context: Context) {
         scanSubnet(subnet)
     }
 
+    /**
+     * Cek apakah sebuah host:port bisa dijangkau (TCP connect singkat).
+     * Dipakai untuk "Hubungkan ulang TV" di Settings — verifikasi cepat
+     * sebelum RemoteScreen mencoba membuka WebSocket sesungguhnya.
+     */
+    suspend fun isHostReachable(ip: String, port: Int): Boolean = withContext(Dispatchers.IO) {
+        isPortOpen(ip, port)
+    }
+
     private suspend fun discoverSSDP(): List<TvDevice> {
         return withContext(Dispatchers.IO) {
             val multicastLock = acquireMulticastLock()

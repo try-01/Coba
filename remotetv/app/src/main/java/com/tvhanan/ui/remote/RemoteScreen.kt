@@ -1,10 +1,11 @@
 package com.tvhanan.ui.remote
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,27 +13,28 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.stickyHeader
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
-import com.tvhanan.ui.components.DpadSection
-import com.tvhanan.ui.components.GlassButton
+import com.tvhanan.ui.components.DpadRing
+import com.tvhanan.ui.components.HapticGlassButton
+import com.tvhanan.ui.components.HapticGlassLabelButton
 import com.tvhanan.ui.components.MeshGradientBackground
 import com.tvhanan.ui.components.ZoneLabel
 import com.tvhanan.ui.theme.AccentWarn
@@ -44,645 +46,449 @@ import com.tvhanan.ui.theme.ColorKeyYellow
 import com.tvhanan.ui.theme.ConnectedColor
 import com.tvhanan.ui.theme.ConnectingColor
 import com.tvhanan.ui.theme.DisconnectedColor
-import com.tvhanan.ui.theme.GlassSurface
+import com.tvhanan.ui.theme.GlassBorder
 import com.tvhanan.ui.theme.MediaAccent
 import com.tvhanan.ui.theme.MediaAccent2
 import com.tvhanan.ui.theme.NavAccent
 import com.tvhanan.ui.theme.NavAccent2
+import com.tvhanan.ui.theme.NetflixRed
 import com.tvhanan.ui.theme.PowerGradientEnd
 import com.tvhanan.ui.theme.PowerGradientStart
+import com.tvhanan.ui.theme.PrimeBlue
 import com.tvhanan.ui.theme.TextDim
-import com.tvhanan.ui.theme.TextFaint
 import com.tvhanan.ui.theme.TextPrimary
+import com.tvhanan.ui.theme.YoutubeRed
 
+/**
+ * Layar remote utama. Dibagi 9 zona sesuai preview yang disepakati,
+ * ditampilkan via LazyColumn + stickyHeader bawaan Compose Foundation
+ * (bukan implementasi manual) supaya status bar + tombol Settings
+ * selalu terlihat saat scroll panjang ke bawah.
+ *
+ * @param scaleFactor faktor skala ukuran tombol, berasal dari
+ *   SettingsViewModel.uiPreferences.remoteSize.scaleFactor (1.0 = normal).
+ *   Dikalikan ke dp tinggi/ukuran komponen kunci (bukan via Modifier.scale,
+ *   supaya touch target & layout flow tetap akurat — beda dari pendekatan
+ *   CSS transform:scale() di preview HTML yang sempat menyebabkan overlap).
+ */
 @Composable
 fun RemoteScreen(
     viewModel: RemoteViewModel,
-    onNavigateToSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    scaleFactor: Float = 1f
 ) {
     val connectionState by viewModel.connectionState.collectAsState()
-    val showNumpad by viewModel.showNumpad.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
-    val remoteSize by viewModel.remoteSize.collectAsState()
-    val meshEnabled by viewModel.meshEnabled.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.connect()
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (meshEnabled) {
-            MeshGradientBackground(Modifier.fillMaxSize())
-        } else {
-            Box(modifier = Modifier.fillMaxSize().background(BgBase))
+    // RemoteViewModel di project ini dibuat via remember(ip, port) { ... } di
+    // NavGraph, BUKAN lewat ViewModelProvider/viewModel() Compose Navigation.
+    // Itu berarti onCleared() (yang berisi disconnect()) tidak otomatis
+    // dipanggil oleh lifecycle ViewModel saat navigasi keluar dari screen ini.
+    // DisposableEffect memastikan disconnect() tetap terpanggil saat
+    // composable ini di-dispose (mis. user menekan back atau navigasi lain),
+    // supaya koneksi WebSocket tidak menggantung.
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.disconnect()
         }
+    }
 
-        val sizeScale = when (remoteSize) {
-            "compact" -> 0.86f
-            "large" -> 1.14f
-            else -> 1f
-        }
+    Box(modifier = Modifier.fillMaxSize()) {
+        MeshGradientBackground(modifier = Modifier.fillMaxSize())
 
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 18.dp),
-            verticalArrangement = Arrangement.spacedBy((18f * sizeScale).dp)
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy((18 * scaleFactor).dp)
         ) {
-            item {
-                StickyHeaderBar(
-                    connectionState = connectionState,
-                    onSettingsClick = onNavigateToSettings
-                )
+            stickyHeader {
+                RemoteHeaderBar(connectionState = connectionState, onSettingsClick = onOpenSettings)
             }
 
-            if (errorMessage != null) {
-                item {
-                    ErrorBanner(
-                        message = errorMessage!!,
-                        onRetry = { viewModel.connect() }
-                    )
+            errorMessage?.let { message ->
+                item { ErrorBanner(message = message, onRetry = { viewModel.connect() }) }
+            }
+
+            item { PowerSourceSleepRow(viewModel, scaleFactor) }
+
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ZoneLabel("Navigasi", accentColor = NavAccent)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                        DpadRing(
+                            onUp = { viewModel.sendKey(RemoteKey.DPAD_UP) },
+                            onDown = { viewModel.sendKey(RemoteKey.DPAD_DOWN) },
+                            onLeft = { viewModel.sendKey(RemoteKey.DPAD_LEFT) },
+                            onRight = { viewModel.sendKey(RemoteKey.DPAD_RIGHT) },
+                            onOk = { viewModel.sendKey(RemoteKey.ENTER) },
+                            size = (216 * scaleFactor).dp
+                        )
+                    }
+                    BackHomeExitRow(viewModel, scaleFactor)
                 }
             }
 
             item {
-                PowerSourceSleepRow(viewModel = viewModel, scale = sizeScale)
-            }
-
-            item {
-                ZoneLabel("Navigasi", NavAccent)
-                Spacer(Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    DpadSection(
-                        onUp = { viewModel.sendKey(RemoteKey.DPAD_UP) },
-                        onDown = { viewModel.sendKey(RemoteKey.DPAD_DOWN) },
-                        onLeft = { viewModel.sendKey(RemoteKey.DPAD_LEFT) },
-                        onRight = { viewModel.sendKey(RemoteKey.DPAD_RIGHT) },
-                        onOk = { viewModel.sendKey(RemoteKey.ENTER) }
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ZoneLabel("Volume & Channel", accentColor = NavAccent2)
+                    VolumeChannelSection(viewModel, scaleFactor)
                 }
-                Spacer(Modifier.height(12.dp))
-                BackHomeExitRow(viewModel = viewModel, scale = sizeScale)
             }
 
             item {
-                ZoneLabel("Volume & Channel", NavAccent2)
-                Spacer(Modifier.height(8.dp))
-                VolumeChannelPills(viewModel = viewModel, scale = sizeScale)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ZoneLabel("Angka", accentColor = AccentWarn)
+                    NumpadGrid(viewModel, scaleFactor)
+                }
             }
 
             item {
-                ZoneLabel("Angka", AccentWarn)
-                Spacer(Modifier.height(8.dp))
-                NumpadGrid(
-                    viewModel = viewModel,
-                    showNumpad = showNumpad,
-                    scale = sizeScale
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ZoneLabel(
+                        "Smart Hub Color Keys",
+                        accentBrush = Brush.horizontalGradient(listOf(ColorKeyRed, ColorKeyGreen))
+                    )
+                    ColorKeysRow(viewModel, scaleFactor)
+                }
             }
 
             item {
-                ZoneLabel(
-                    "Smart Hub Color Keys",
-                    accentColor = null
-                )
-                Spacer(Modifier.height(8.dp))
-                ColorKeysRow(viewModel = viewModel, scale = sizeScale)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ZoneLabel("Media", accentColor = MediaAccent)
+                    MediaTransportRow(viewModel, scaleFactor)
+                }
             }
 
             item {
-                ZoneLabel("Media", MediaAccent)
-                Spacer(Modifier.height(8.dp))
-                MediaTransportRow(viewModel = viewModel, scale = sizeScale)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ZoneLabel("Menu & Info", accentColor = TextDim)
+                    MenuInfoGrid(viewModel, scaleFactor)
+                }
             }
 
             item {
-                ZoneLabel("Menu & Info", TextFaint)
-                Spacer(Modifier.height(8.dp))
-                MenuInfoGrid(viewModel = viewModel, scale = sizeScale)
-            }
-
-            item {
-                Spacer(Modifier.height(16.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ZoneLabel(
+                        "App Pintasan",
+                        accentBrush = Brush.horizontalGradient(listOf(NetflixRed, PrimeBlue))
+                    )
+                    AppShortcutsRow(viewModel, scaleFactor)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun StickyHeaderBar(
-    connectionState: ConnectionState,
-    onSettingsClick: () -> Unit
-) {
-    val (statusText, dotColor) = when (connectionState) {
+private fun RemoteHeaderBar(connectionState: ConnectionState, onSettingsClick: () -> Unit) {
+    val (label, color) = when (connectionState) {
         ConnectionState.CONNECTED -> "Connected" to ConnectedColor
-        ConnectionState.CONNECTING -> "Connecting..." to ConnectingColor
-        ConnectionState.DISCONNECTED -> "Disconnected" to DisconnectedColor
+        ConnectionState.CONNECTING -> "Menghubungkan..." to ConnectingColor
+        ConnectionState.DISCONNECTED -> "Terputus" to DisconnectedColor
         ConnectionState.ERROR -> "Error" to DisconnectedColor
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(999.dp))
-            .background(BgBase.copy(alpha = 0.78f))
+            .background(BgBase.copy(alpha = 0.78f), RoundedCornerShape(999.dp))
+            .border(1.dp, GlassBorder, RoundedCornerShape(999.dp))
             .padding(start = 14.dp, end = 8.dp, top = 9.dp, bottom = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(dotColor)
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = statusText,
-                color = TextDim,
-                fontSize = 12.sp
-            )
-        }
+        Box(modifier = Modifier.size(8.dp).background(color, CircleShape))
+        Spacer(modifier = Modifier.size(width = 8.dp, height = 1.dp))
+        Text(text = label, color = TextDim, style = MaterialTheme.typography.bodySmall)
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = "SAMSUNG \u00B7 N4300",
-                color = TextPrimary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1
-            )
-            Spacer(Modifier.width(8.dp))
-            GlassButton(
-                onClick = onSettingsClick,
-                modifier = Modifier.size(34.dp),
-                cornerRadius = 50,
-                hapticFeedback = true
-            ) {
-                Text(
-                    text = "\u2699",
-                    color = TextDim,
-                    fontSize = 16.sp
-                )
-            }
-        }
-    }
-}
+        Spacer(modifier = Modifier.weight(1f))
 
-@Composable
-private fun ErrorBanner(
-    message: String,
-    onRetry: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
         Text(
-            text = message,
-            color = DisconnectedColor,
-            fontSize = 14.sp,
-            textAlign = TextAlign.Center
+            text = "SAMSUNG · N4300",
+            color = TextPrimary,
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1
         )
-        Spacer(Modifier.height(8.dp))
-        GlassButton(
+
+        Spacer(modifier = Modifier.size(width = 10.dp, height = 1.dp))
+
+        HapticGlassButton(
+            onClick = onSettingsClick,
+            modifier = Modifier.size(34.dp),
+            shape = CircleShape
+        ) {
+            Text("\u2699", color = TextDim, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun ErrorBanner(message: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DisconnectedColor.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
+            .border(1.dp, DisconnectedColor.copy(alpha = 0.30f), RoundedCornerShape(16.dp))
+            .padding(14.dp)
+    ) {
+        Text(text = message, color = DisconnectedColor, style = MaterialTheme.typography.bodyMedium)
+        Spacer(modifier = Modifier.height(10.dp))
+        HapticGlassButton(
             onClick = onRetry,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-            cornerRadius = 12,
-            gradient = listOf(NavAccent, NavAccent2)
+            modifier = Modifier.fillMaxWidth().height(40.dp),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Text(
-                "Coba Lagi",
-                color = Color(0xFF06201c),
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-    }
-}
-
-@Composable
-private fun PowerSourceSleepRow(
-    viewModel: RemoteViewModel,
-    scale: Float
-) {
-    val btnH = (60f * scale).dp
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Box(modifier = Modifier.fillMaxWidth(0.33f).height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.POWER) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 18,
-                gradient = listOf(PowerGradientStart.copy(alpha = 0.24f), PowerGradientEnd.copy(alpha = 0.16f)),
-                borderColor = PowerGradientStart.copy(alpha = 0.38f)
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "\u23FB", color = Color(0xFFFFB199), fontSize = 20.sp)
-                    Text(text = "POWER", color = TextDim, fontSize = 9.5.sp)
-                }
-            }
-        }
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.SOURCE) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 18
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "\u25A6", color = TextPrimary, fontSize = 20.sp)
-                    Text(text = "SOURCE", color = TextDim, fontSize = 9.5.sp)
-                }
-            }
-        }
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.SLEEP) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 18
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "\u263E", color = TextPrimary, fontSize = 20.sp)
-                    Text(text = "SLEEP", color = TextDim, fontSize = 9.5.sp)
-                }
-            }
+            Text("Coba Lagi", color = TextPrimary, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
 
 @Composable
-private fun BackHomeExitRow(
-    viewModel: RemoteViewModel,
-    scale: Float
-) {
-    val btnH = (50f * scale).dp
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.BACK) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 18
-            ) { Text(text = "\u2190", color = TextPrimary, fontSize = 18.sp) }
+private fun PowerSourceSleepRow(viewModel: RemoteViewModel, scaleFactor: Float) {
+    val height = (60 * scaleFactor).dp
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        HapticGlassButton(
+            onClick = { viewModel.sendKey(RemoteKey.POWER) },
+            modifier = Modifier.weight(1f).height(height),
+            gradientColors = listOf(PowerGradientStart.copy(alpha = 0.24f), PowerGradientEnd.copy(alpha = 0.16f)),
+            borderColor = PowerGradientStart.copy(alpha = 0.38f)
+        ) {
+            Text("Power", color = Color(0xFFFFB199), style = MaterialTheme.typography.bodySmall)
         }
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.HOME) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 18
-            ) { Text(text = "\u2302", color = TextPrimary, fontSize = 18.sp) }
+        HapticGlassButton(
+            onClick = { viewModel.sendKey(RemoteKey.SOURCE) },
+            modifier = Modifier.weight(1f).height(height)
+        ) {
+            Text("Source", color = TextPrimary, style = MaterialTheme.typography.bodySmall)
         }
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.EXIT) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 18
-            ) { Text(text = "\u2715", color = TextPrimary, fontSize = 18.sp) }
+        HapticGlassButton(
+            onClick = { viewModel.sendKey(RemoteKey.HDMI) },
+            modifier = Modifier.weight(1f).height(height)
+        ) {
+            Text("HDMI", color = TextPrimary, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
 @Composable
-private fun VolumeChannelPills(
-    viewModel: RemoteViewModel,
-    scale: Float
-) {
+private fun BackHomeExitRow(viewModel: RemoteViewModel, scaleFactor: Float) {
+    val height = (50 * scaleFactor).dp
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        HapticGlassLabelButton(
+            label = "Back",
+            onClick = { viewModel.sendKey(RemoteKey.BACK) },
+            modifier = Modifier.weight(1f).height(height),
+            fontSize = 13.sp
+        )
+        HapticGlassLabelButton(
+            label = "Home",
+            onClick = { viewModel.sendKey(RemoteKey.HOME) },
+            modifier = Modifier.weight(1f).height(height),
+            fontSize = 13.sp
+        )
+        HapticGlassLabelButton(
+            label = "Exit",
+            onClick = { viewModel.sendKey(RemoteKey.EXIT) },
+            modifier = Modifier.weight(1f).height(height),
+            fontSize = 13.sp
+        )
+    }
+}
+
+@Composable
+private fun VolumeChannelSection(viewModel: RemoteViewModel, scaleFactor: Float) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        PillGroup(
-            label = "VOL",
-            onMinus = { viewModel.sendKey(RemoteKey.VOL_DOWN) },
-            onPlus = { viewModel.sendKey(RemoteKey.VOL_UP) },
-            onExtra = { viewModel.sendKey(RemoteKey.MUTE) },
-            extraIcon = "\uD83D\uDD0A",
-            scale = scale
+        PillRow(
+            scaleFactor = scaleFactor,
+            cells = listOf(
+                PillCell("\u2212", isSymbol = true) { viewModel.sendKey(RemoteKey.VOL_DOWN) },
+                PillCell("VOL", isSymbol = false) { },
+                PillCell("+", isSymbol = true) { viewModel.sendKey(RemoteKey.VOL_UP) },
+                PillCell("Mute", isSymbol = false) { viewModel.sendKey(RemoteKey.MUTE) }
+            )
         )
-        PillGroup(
-            label = "CH",
-            onMinus = { viewModel.sendKey(RemoteKey.CH_DOWN) },
-            onPlus = { viewModel.sendKey(RemoteKey.CH_UP) },
-            onExtra = { viewModel.sendKey(RemoteKey.CH_LIST) },
-            extraIcon = "\u2630",
-            scale = scale
+        PillRow(
+            scaleFactor = scaleFactor,
+            cells = listOf(
+                PillCell("\u2212", isSymbol = true) { viewModel.sendKey(RemoteKey.CH_DOWN) },
+                PillCell("CH", isSymbol = false) { },
+                PillCell("+", isSymbol = true) { viewModel.sendKey(RemoteKey.CH_UP) },
+                PillCell("List", isSymbol = false) { viewModel.sendKey(RemoteKey.CH_LIST) }
+            )
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.PRE_CH) },
-                modifier = Modifier.fillMaxWidth().height((48f * scale).dp),
-                cornerRadius = 18
-            ) { Text("PRE-CH", color = TextPrimary, fontSize = 11.sp) }
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.CH_LIST) },
-                modifier = Modifier.fillMaxWidth().height((48f * scale).dp),
-                cornerRadius = 18
-            ) { Text("CH LIST", color = TextPrimary, fontSize = 11.sp) }
-        }
+        HapticGlassLabelButton(
+            label = "PRE-CH",
+            onClick = { viewModel.sendKey(RemoteKey.PRE_CH) },
+            modifier = Modifier.fillMaxWidth().height((46 * scaleFactor).dp),
+            fontSize = 11.sp
+        )
     }
 }
 
+private data class PillCell(val label: String, val isSymbol: Boolean, val onClick: () -> Unit)
+
 @Composable
-private fun PillGroup(
-    label: String,
-    onMinus: () -> Unit,
-    onPlus: () -> Unit,
-    onExtra: () -> Unit,
-    extraIcon: String,
-    scale: Float
-) {
-    val pillH = (54f * scale).dp
+private fun PillRow(cells: List<PillCell>, scaleFactor: Float) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(pillH)
-            .clip(RoundedCornerShape(18.dp))
-            .background(GlassSurface)
+            .height((54 * scaleFactor).dp)
+            .background(Color.Transparent, RoundedCornerShape(18.dp))
+            .border(1.dp, GlassBorder, RoundedCornerShape(18.dp)),
+        horizontalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        GlassButton(onClick = onMinus, modifier = Modifier.fillMaxWidth().height(pillH), cornerRadius = 0, borderColor = Color.Transparent, hapticFeedback = true) {
-            Text("\u2212", color = TextPrimary, fontSize = 17.sp)
-        }
-        GlassButton(onClick = {}, modifier = Modifier.fillMaxWidth().height(pillH), cornerRadius = 0, borderColor = Color.Transparent, hapticFeedback = false) {
-            Text(label, color = TextDim, fontSize = 11.sp)
-        }
-        GlassButton(onClick = onPlus, modifier = Modifier.fillMaxWidth().height(pillH), cornerRadius = 0, borderColor = Color.Transparent, hapticFeedback = true) {
-            Text("+", color = TextPrimary, fontSize = 17.sp)
-        }
-        GlassButton(onClick = onExtra, modifier = Modifier.fillMaxWidth().height(pillH), cornerRadius = 0, borderColor = Color.Transparent, hapticFeedback = true) {
-            Text(extraIcon, color = TextPrimary, fontSize = 18.sp)
-        }
-    }
-}
-
-@Composable
-private fun NumpadGrid(
-    viewModel: RemoteViewModel,
-    showNumpad: Boolean,
-    scale: Float
-) {
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            GlassButton(
-                onClick = { viewModel.toggleNumpad() },
-                modifier = Modifier.size((64f * scale).dp),
-                cornerRadius = 18,
-                hapticFeedback = true
-            ) { Text(if (showNumpad) "Tutup" else "Angka", color = TextPrimary, fontSize = 11.sp) }
-        }
-
-        AnimatedVisibility(visible = showNumpad) {
-            Column {
-                Spacer(Modifier.height(8.dp))
-                val numKeys = listOf(
-                    listOf(RemoteKey.KEY_1, RemoteKey.KEY_2, RemoteKey.KEY_3),
-                    listOf(RemoteKey.KEY_4, RemoteKey.KEY_5, RemoteKey.KEY_6),
-                    listOf(RemoteKey.KEY_7, RemoteKey.KEY_8, RemoteKey.KEY_9),
-                    listOf(RemoteKey.PRE_CH, RemoteKey.KEY_0, null)
+        cells.forEachIndexed { index, cell ->
+            val shape = when (index) {
+                0 -> RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp)
+                cells.lastIndex -> RoundedCornerShape(topEnd = 18.dp, bottomEnd = 18.dp)
+                else -> RoundedCornerShape(0.dp)
+            }
+            HapticGlassButton(
+                onClick = cell.onClick,
+                modifier = Modifier.weight(1f).fillMaxSize(),
+                shape = shape,
+                borderColor = Color.Transparent
+            ) {
+                Text(
+                    text = cell.label,
+                    color = if (cell.isSymbol) TextPrimary else TextDim,
+                    style = MaterialTheme.typography.bodyMedium
                 )
-                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    numKeys.forEach { row ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(9.dp)
-                        ) {
-                            row.forEach { key ->
-                                val btnH = (54f * scale).dp
-                                if (key != null) {
-                                    GlassButton(
-                                        onClick = { viewModel.sendKey(key) },
-                                        modifier = Modifier.fillMaxWidth().height(btnH),
-                                        cornerRadius = 18,
-                                        hapticFeedback = true
-                                    ) {
-                                        Text(
-                                            text = key.label,
-                                            color = if (key == RemoteKey.PRE_CH) TextDim else TextPrimary,
-                                            fontSize = if (key == RemoteKey.PRE_CH) 13.sp else 19.sp,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                } else {
-                                    Box(modifier = Modifier.fillMaxWidth().height(btnH))
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
     }
 }
 
 @Composable
-private fun ColorKeysRow(
-    viewModel: RemoteViewModel,
-    scale: Float
-) {
-    val btnH = (46f * scale).dp
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.RED) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 14,
-                gradient = listOf(ColorKeyRed.copy(alpha = 0.22f), ColorKeyRed.copy(alpha = 0.08f)),
-                borderColor = ColorKeyRed.copy(alpha = 0.35f)
-            ) { Text("A", color = ColorKeyRed, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
-        }
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.GREEN) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 14,
-                gradient = listOf(ColorKeyGreen.copy(alpha = 0.22f), ColorKeyGreen.copy(alpha = 0.08f)),
-                borderColor = ColorKeyGreen.copy(alpha = 0.35f)
-            ) { Text("B", color = ColorKeyGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
-        }
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.YELLOW) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 14,
-                gradient = listOf(ColorKeyYellow.copy(alpha = 0.22f), ColorKeyYellow.copy(alpha = 0.08f)),
-                borderColor = ColorKeyYellow.copy(alpha = 0.35f)
-            ) { Text("C", color = ColorKeyYellow, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
-        }
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.BLUE) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 14,
-                gradient = listOf(ColorKeyBlue.copy(alpha = 0.22f), ColorKeyBlue.copy(alpha = 0.08f)),
-                borderColor = ColorKeyBlue.copy(alpha = 0.35f)
-            ) { Text("D", color = ColorKeyBlue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
-        }
-    }
-}
-
-@Composable
-private fun MediaTransportRow(
-    viewModel: RemoteViewModel,
-    scale: Float
-) {
-    val btnH = (52f * scale).dp
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.REWIND) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 15,
-                gradient = listOf(MediaAccent.copy(alpha = 0.14f), MediaAccent2.copy(alpha = 0.10f)),
-                borderColor = MediaAccent.copy(alpha = 0.25f)
-            ) { Text("\u23EE", color = Color(0xFFD9C2FF), fontSize = 18.sp) }
-        }
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.PLAY) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 15,
-                gradient = listOf(MediaAccent.copy(alpha = 0.14f), MediaAccent2.copy(alpha = 0.10f)),
-                borderColor = MediaAccent.copy(alpha = 0.25f)
-            ) { Text("\u25B6", color = Color(0xFFD9C2FF), fontSize = 18.sp) }
-        }
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.PAUSE) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 15,
-                gradient = listOf(MediaAccent.copy(alpha = 0.14f), MediaAccent2.copy(alpha = 0.10f)),
-                borderColor = MediaAccent.copy(alpha = 0.25f)
-            ) { Text("\u23F8", color = Color(0xFFD9C2FF), fontSize = 18.sp) }
-        }
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.STOP) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 15,
-                gradient = listOf(MediaAccent.copy(alpha = 0.14f), MediaAccent2.copy(alpha = 0.10f)),
-                borderColor = MediaAccent.copy(alpha = 0.25f)
-            ) { Text("\u23F9", color = Color(0xFFD9C2FF), fontSize = 18.sp) }
-        }
-        Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-            GlassButton(
-                onClick = { viewModel.sendKey(RemoteKey.FAST_FORWARD) },
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 15,
-                gradient = listOf(MediaAccent.copy(alpha = 0.14f), MediaAccent2.copy(alpha = 0.10f)),
-                borderColor = MediaAccent.copy(alpha = 0.25f)
-            ) { Text("\u23ED", color = Color(0xFFD9C2FF), fontSize = 18.sp) }
-        }
-    }
-}
-
-@Composable
-private fun MenuInfoGrid(
-    viewModel: RemoteViewModel,
-    scale: Float
-) {
-    val btnH = (58f * scale).dp
+private fun NumpadGrid(viewModel: RemoteViewModel, scaleFactor: Float) {
+    val rows = listOf(
+        listOf(RemoteKey.KEY_1, RemoteKey.KEY_2, RemoteKey.KEY_3),
+        listOf(RemoteKey.KEY_4, RemoteKey.KEY_5, RemoteKey.KEY_6),
+        listOf(RemoteKey.KEY_7, RemoteKey.KEY_8, RemoteKey.KEY_9),
+        listOf(RemoteKey.KEY_0)
+    )
+    val keyHeight = (54 * scaleFactor).dp
     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
-        ) {
-            Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-                GlassButton(
-                    onClick = { viewModel.sendKey(RemoteKey.MENU) },
-                    modifier = Modifier.fillMaxSize(),
-                    cornerRadius = 18
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("\u2630", color = TextPrimary.copy(alpha = 0.85f), fontSize = 18.sp)
-                        Text("MENU", color = TextDim, fontSize = 10.sp)
-                    }
+        rows.forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.fillMaxWidth()) {
+                row.forEach { key ->
+                    HapticGlassLabelButton(
+                        label = key.label,
+                        onClick = { viewModel.sendKey(key) },
+                        modifier = Modifier.weight(1f).height(keyHeight),
+                        fontSize = 19.sp
+                    )
                 }
-            }
-            Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-                GlassButton(
-                    onClick = { viewModel.sendKey(RemoteKey.GUIDE) },
-                    modifier = Modifier.fillMaxSize(),
-                    cornerRadius = 18
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("\u25A7", color = TextPrimary.copy(alpha = 0.85f), fontSize = 18.sp)
-                        Text("GUIDE", color = TextDim, fontSize = 10.sp)
-                    }
-                }
-            }
-            Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-                GlassButton(
-                    onClick = { viewModel.sendKey(RemoteKey.INFO) },
-                    modifier = Modifier.fillMaxSize(),
-                    cornerRadius = 18
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("\u24D8", color = TextPrimary.copy(alpha = 0.85f), fontSize = 18.sp)
-                        Text("INFO", color = TextDim, fontSize = 10.sp)
-                    }
+                repeat(3 - row.size) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
-        ) {
-            Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-                GlassButton(
-                    onClick = { viewModel.sendKey(RemoteKey.PICTURE_SIZE) },
-                    modifier = Modifier.fillMaxSize(),
-                    cornerRadius = 18
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("\u2699", color = TextPrimary.copy(alpha = 0.85f), fontSize = 18.sp)
-                        Text("SETTINGS", color = TextDim, fontSize = 10.sp)
-                    }
-                }
+    }
+}
+
+@Composable
+private fun ColorKeysRow(viewModel: RemoteViewModel, scaleFactor: Float) {
+    val height = (46 * scaleFactor).dp
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        ColorKeyButton("A", ColorKeyRed, Modifier.weight(1f), height) { viewModel.sendKey(RemoteKey.RED) }
+        ColorKeyButton("B", ColorKeyGreen, Modifier.weight(1f), height) { viewModel.sendKey(RemoteKey.GREEN) }
+        ColorKeyButton("C", ColorKeyYellow, Modifier.weight(1f), height) { viewModel.sendKey(RemoteKey.YELLOW) }
+        ColorKeyButton("D", ColorKeyBlue, Modifier.weight(1f), height) { viewModel.sendKey(RemoteKey.BLUE) }
+    }
+}
+
+@Composable
+private fun ColorKeyButton(label: String, color: Color, modifier: Modifier, height: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
+    HapticGlassButton(
+        onClick = onClick,
+        modifier = modifier.height(height),
+        shape = RoundedCornerShape(14.dp),
+        gradientColors = listOf(color.copy(alpha = 0.20f), color.copy(alpha = 0.07f)),
+        borderColor = color.copy(alpha = 0.35f),
+        contentColor = color
+    ) {
+        Text(label, style = MaterialTheme.typography.titleMedium, color = color)
+    }
+}
+
+@Composable
+private fun MediaTransportRow(viewModel: RemoteViewModel, scaleFactor: Float) {
+    val buttons = listOf(
+        "\u23EA" to { viewModel.sendKey(RemoteKey.REWIND) },
+        "\u25B6" to { viewModel.sendKey(RemoteKey.PLAY) },
+        "\u23F8" to { viewModel.sendKey(RemoteKey.PAUSE) },
+        "\u23F9" to { viewModel.sendKey(RemoteKey.STOP) },
+        "\u23E9" to { viewModel.sendKey(RemoteKey.FAST_FORWARD) }
+    )
+    val height = (52 * scaleFactor).dp
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        buttons.forEach { (icon, action) ->
+            HapticGlassButton(
+                onClick = action,
+                modifier = Modifier.weight(1f).height(height),
+                shape = RoundedCornerShape(15.dp),
+                gradientColors = listOf(MediaAccent.copy(alpha = 0.14f), MediaAccent2.copy(alpha = 0.10f)),
+                borderColor = MediaAccent.copy(alpha = 0.25f)
+            ) {
+                Text(icon, color = MediaAccent, style = MaterialTheme.typography.bodyLarge)
             }
-            Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-                GlassButton(
-                    onClick = { viewModel.sendKey(RemoteKey.PICTURE_SIZE) },
-                    modifier = Modifier.fillMaxSize(),
-                    cornerRadius = 18
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("\uD83D\uDD14", color = TextPrimary.copy(alpha = 0.85f), fontSize = 18.sp)
-                        Text("P.SIZE", color = TextDim, fontSize = 10.sp)
-                    }
-                }
-            }
-            Box(modifier = Modifier.fillMaxWidth().height(btnH)) {
-                GlassButton(
-                    onClick = { viewModel.sendKey(RemoteKey.CAPTION) },
-                    modifier = Modifier.fillMaxSize(),
-                    cornerRadius = 18
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("CC", color = TextPrimary.copy(alpha = 0.85f), fontSize = 18.sp)
-                        Text("CC/VD", color = TextDim, fontSize = 10.sp)
-                    }
+        }
+    }
+}
+
+@Composable
+private fun MenuInfoGrid(viewModel: RemoteViewModel, scaleFactor: Float) {
+    val items = listOf(
+        Triple("Menu", RemoteKey.MENU, "\u2630"),
+        Triple("Guide", RemoteKey.GUIDE, "\uD83D\uDCC5"),
+        Triple("Info", RemoteKey.INFO, "\u2139")
+    )
+    val height = (58 * scaleFactor).dp
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+        items.forEach { (label, key, icon) ->
+            HapticGlassButton(
+                onClick = { viewModel.sendKey(key) },
+                modifier = Modifier.weight(1f).height(height),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(icon, color = TextPrimary.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(label, color = TextDim, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AppShortcutsRow(viewModel: RemoteViewModel, scaleFactor: Float) {
+    // Catatan: belum ada RemoteKey khusus utk deep-link app Smart Hub di domain
+    // model saat ini, jadi dipetakan ke SOURCE sbg placeholder. Untuk dukungan
+    // penuh, tambahkan RemoteKey baru (mis. APP_NETFLIX) lalu petakan di
+    // SamsungKeyMapper begitu protokol deep-link Smart Hub diimplementasikan.
+    val height = (54 * scaleFactor).dp
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        AppShortcutButton("NETFLIX", NetflixRed, Modifier.weight(1f), height) { viewModel.sendKey(RemoteKey.SOURCE) }
+        AppShortcutButton("PRIME", PrimeBlue, Modifier.weight(1f), height) { viewModel.sendKey(RemoteKey.SOURCE) }
+        AppShortcutButton("YOUTUBE", YoutubeRed, Modifier.weight(1f), height) { viewModel.sendKey(RemoteKey.SOURCE) }
+    }
+}
+
+@Composable
+private fun AppShortcutButton(label: String, color: Color, modifier: Modifier, height: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
+    HapticGlassButton(
+        onClick = onClick,
+        modifier = modifier.height(height),
+        shape = RoundedCornerShape(16.dp),
+        gradientColors = listOf(color.copy(alpha = 0.18f), color.copy(alpha = 0.06f)),
+        borderColor = color.copy(alpha = 0.32f),
+        contentColor = color
+    ) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = color)
     }
 }

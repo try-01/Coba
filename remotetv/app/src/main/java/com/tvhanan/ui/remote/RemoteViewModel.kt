@@ -8,8 +8,6 @@ import com.tvhanan.data.network.TvWebSocketClient
 import com.tvhanan.data.network.WakeOnLanUtil
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
-import com.tvhanan.domain.model.TvDevice
-import com.tvhanan.util.HapticUtil
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,29 +29,16 @@ class RemoteViewModel(
 
     val connectionState: StateFlow<ConnectionState> = webSocketClient.connectionState
 
+    // Catatan: showNumpad/toggleNumpad dipertahankan untuk kompatibilitas,
+    // tapi RemoteScreen versi mesh/glass saat ini menampilkan numpad secara
+    // selalu-terlihat (tidak collapse), sehingga state ini tidak lagi
+    // dipakai oleh UI. Aman dibiarkan kalau nanti ingin kembali ke pola
+    // collapse, atau bisa dihapus jika dipastikan tidak ada pemanggil lain.
     private val _showNumpad = MutableStateFlow(false)
     val showNumpad: StateFlow<Boolean> = _showNumpad.asStateFlow()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
-
-    private val _remoteSize = MutableStateFlow("fit")
-    val remoteSize: StateFlow<String> = _remoteSize.asStateFlow()
-
-    private val _meshEnabled = MutableStateFlow(true)
-    val meshEnabled: StateFlow<Boolean> = _meshEnabled.asStateFlow()
-
-    val tvDevice: TvDevice
-        get() = TvDevice(ipAddress = ipAddress, macAddress = macAddress, port = port)
-
-    init {
-        viewModelScope.launch {
-            preferences?.let {
-                _remoteSize.value = it.remoteSize.first()
-                _meshEnabled.value = it.meshBackground.first()
-            }
-        }
-    }
 
     fun toggleNumpad() {
         _showNumpad.value = !_showNumpad.value
@@ -61,9 +46,9 @@ class RemoteViewModel(
 
     fun connect() {
         Log.d(TAG, "connect() called for $ipAddress")
-        _errorMessage.value = null
         viewModelScope.launch {
             val savedToken = preferences?.getToken()
+            Log.d(TAG, "savedToken = ${if (savedToken == null) "null" else "exists"}")
 
             val result = webSocketClient.connectWithFallback(ipAddress, savedToken)
 
@@ -86,14 +71,20 @@ class RemoteViewModel(
         }
     }
 
+    /**
+     * Mengirim key ke TV. Catatan: haptic feedback TIDAK dipicu di sini —
+     * itu ditangani oleh komponen UI (HapticGlassButton) saat tombol
+     * mulai ditekan (onPress), bukan di layer ViewModel. Ini menghindari
+     * getar terpicu dua kali (sekali dari UI saat press, sekali lagi
+     * dari sini) dan menjaga ViewModel tidak punya concern soal detail
+     * presentasi seperti vibration.
+     */
     fun sendKey(key: RemoteKey) {
-        HapticUtil.tick()
         webSocketClient.sendKey(key)
     }
 
     fun wakeOnLan() {
         macAddress?.let { mac ->
-            HapticUtil.tick()
             WakeOnLanUtil.sendWakeOnLan(mac)
         }
     }
