@@ -110,7 +110,7 @@ private fun androidx.compose.foundation.layout.BoxScope.DpadArrowZone(
         onClick = onClick,
         modifier = zoneModifier.size(50.dp),
         shape = RoundedCornerShape(15.dp),
-        borderColor = Color.Transparent
+        borderColor = NavAccent.copy(alpha = 0.08f)
     ) {
         Text(
             text = when (direction) {

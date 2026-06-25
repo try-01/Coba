@@ -36,25 +36,25 @@ fun MeshGradientBackground(modifier: Modifier = Modifier) {
             color = MeshBlob1,
             center = Offset(size.width * 0.08f, size.height * 0.05f),
             radius = size.width * 0.62f,
-            alpha = 0.50f
+            alpha = 0.65f
         )
         drawMeshBlob(
             color = MeshBlob2,
             center = Offset(size.width * 0.96f, size.height * 0.24f),
             radius = size.width * 0.58f,
-            alpha = 0.40f
+            alpha = 0.55f
         )
         drawMeshBlob(
             color = MeshBlob3,
             center = Offset(size.width * 0.10f, size.height * 0.56f),
             radius = size.width * 0.62f,
-            alpha = 0.34f
+            alpha = 0.48f
         )
         drawMeshBlob(
             color = MeshBlob4,
             center = Offset(size.width * 0.92f, size.height * 0.74f),
             radius = size.width * 0.58f,
-            alpha = 0.36f
+            alpha = 0.50f
         )
     }
 }
