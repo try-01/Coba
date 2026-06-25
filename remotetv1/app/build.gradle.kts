@@ -63,9 +63,7 @@ dependencies {
     // Hilt
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
-    implementation(libs.hilt.lifecycle.viewmodel)
     kapt(libs.hilt.android.compiler)
-    kapt(libs.hilt.compiler)
 
     // Protobuf
     implementation(libs.protobuf)
