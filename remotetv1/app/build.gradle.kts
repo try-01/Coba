@@ -55,7 +55,7 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.okhttp)
-    implementation(libs.datastore)
+    implementation(libs.datastore) // Menggunakan preferences datastore dari Version Catalog
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
     implementation(libs.core.ktx)
@@ -71,9 +71,8 @@ dependencies {
     implementation(libs.protobuf)
     implementation(libs.protobuf.kotlin)
 
-    // Datastore Protobuf (optional, but we will use Proto DataStore)
-    implementation("androidx.datastore:datastore.core:1.0.0")
-    implementation("androidx.datastore:datastore.preferences:1.1.1")
+    // Datastore Protobuf (Dialihkan ke Version Catalog agar sinkron)
+    implementation(libs.datastore.core) // Menggantikan datastore.core:1.0.0 (typo titik & versi lawas)
 
     // Test dependencies
     testImplementation("junit:junit:4.13.2")
@@ -81,11 +80,11 @@ dependencies {
     testImplementation("org.mockito.kotlin:mockito.kotlin:4.0.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx.coroutines.test:1.7.3")
     testImplementation("app.cash.turbine:turbine:1.0.0")
-    testImplementation("androidx.core:core.ktx:1.12.0")
+    testImplementation("androidx.core:core-ktx:1.12.0") // Diperbaiki: titik (.) menjadi strip (-)
     testImplementation("androidx.test:core:1.5.0")
     testImplementation("androidx.test.ext:junit:1.1.5")
     testImplementation("org.robolectric:robolectric:4.12")
-    testImplementation("androidx.test.ext:junit.ktx:1.1.5")
+    testImplementation("androidx.test.ext:junit-ktx:1.1.5") // Diperbaiki: titik (.) menjadi strip (-)
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.tooling.preview)
