@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -57,24 +59,33 @@ fun GlassButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
+    // visualPressed dipaksa bertahan minimal ~120ms walau isPressed asli
+    // sudah balik ke false lebih cepat (tap cepat) — supaya animasi scale
+    // SELALU sempat terlihat minimal 1-2 frame, tidak "ketelan" oleh
+    // tap-release yang lebih cepat dari waktu render.
+    var visualPressed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isPressed) {
+        if (isPressed) {
+            visualPressed = true
+            onPressedChange?.invoke(true)
+        } else {
+            kotlinx.coroutines.delay(110)
+            visualPressed = false
+            onPressedChange?.invoke(false)
+        }
+    }
+
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.94f else 1f,
-        animationSpec = tween(90),
+        targetValue = if (visualPressed) 0.94f else 1f,
+        animationSpec = tween(durationMillis = 70, easing = androidx.compose.animation.core.FastOutSlowInEasing),
         label = "glassButtonScale"
     )
-
-    // Notify caller of press changes (untuk trigger haptic dari luar,
-    // supaya GlassButton ini tidak perlu tahu soal Context/HapticUtil
-    // sama sekali — menjaga komponen ini tetap reusable & tidak punya
-    // side-effect tersembunyi).
-    LaunchedEffect(isPressed) {
-        onPressedChange?.invoke(isPressed)
-    }
 
     val backgroundModifier = if (gradientColors != null) {
         Modifier.background(Brush.linearGradient(gradientColors), shape)
     } else {
-        Modifier.background(if (isPressed) GlassSurfacePressed else GlassSurface, shape)
+        Modifier.background(if (visualPressed) GlassSurfacePressed else GlassSurface, shape)
     }
 
     Box(
@@ -87,7 +98,7 @@ fun GlassButton(
             )
             .scale(scale)
             .then(backgroundModifier)
-            .border(1.dp, if (isPressed) GlassBorderStrong else borderColor, shape),
+            .border(1.dp, if (visualPressed) GlassBorderStrong else borderColor, shape),
         contentAlignment = Alignment.Center
     ) {
         CompositionLocalProvider(LocalContentColor provides contentColor) {
