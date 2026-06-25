@@ -2,6 +2,7 @@ package com.tvhanan.data.network
 
 import android.content.Context
 import android.net.wifi.WifiManager
+import android.util.Log
 import com.tvhanan.domain.model.TvDevice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -25,6 +26,7 @@ class TvDiscoveryService(private val context: Context) {
         private const val SSDP_TIMEOUT = 4000L
         private const val SCAN_TIMEOUT = 300
         private const val TARGET_PORT = 8001
+        private const val TAG = "TvDiscoveryService"
     }
 
     suspend fun discoverDevices(): List<TvDevice> = withContext(Dispatchers.IO) {
@@ -236,9 +238,5 @@ class TvDiscoveryService(private val context: Context) {
         } catch (_: Exception) {
             null
         }
-    }
-
-    companion object {
-        private const val TAG = "TvDiscoveryService"
     }
 }
