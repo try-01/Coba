@@ -9,6 +9,7 @@ import com.tvhanan.data.network.WakeOnLanUtil
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
 import dagger.Assisted
+import dagger.assisted.AssistedFactory
 import dagger.hilt.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,13 +20,22 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-@HiltViewModel
+@HiltViewModel(assistedFactory = RemoteViewModel.Factory::class) // Tambahkan assistedFactory di sini
 class RemoteViewModel @AssistedInject constructor(
     @Assisted private val ipAddress: String,
     @Assisted private val port: Int = 8001,
     private val webSocketClient: TvWebSocketClient,
     private val preferences: TvPreferences
 ) : ViewModel() {
+
+    // Tambahkan interface Factory ini di dalam kelas RemoteViewModel
+    @AssistedFactory
+    interface Factory {
+        fun create(ipAddress: String, port: Int): RemoteViewModel
+    }
+
+    // ... sisa kode lainnya tetap sama ...
+
 
     companion object {
         private const val TAG = "TvHanan"
