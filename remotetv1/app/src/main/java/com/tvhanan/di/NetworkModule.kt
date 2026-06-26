@@ -3,13 +3,13 @@ package com.tvhanan.di
 import android.content.Context
 import com.tvhanan.data.local.TvPreferences
 import com.tvhanan.data.local.UserPrefsDataStore
-import com.tvhanan.data.local.TvDiscoveryService
+import com.tvhanan.data.network.TvDiscoveryService // DIPERBAIKI: Import package yang benar (network, bukan local)
 import com.tvhanan.data.network.TvWebSocketClient
 import com.tvhanan.ui.settings.SettingsViewModel
-import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext // DIPERBAIKI: Menambahkan import @ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
@@ -41,11 +41,8 @@ object NetworkModule {
         return UserPrefsDataStore.getInstance(ctx)
     }
 
-    @Binds
-    abstract fun bindDiscoveryService(service: TvDiscoveryService): TvDiscoveryService
-
-    @Binds
-    abstract fun bindPreferences(prefs: TvPreferences): TvPreferences
+    // CATATAN: Fungsi @Binds abstrak sebelumnya dihapus karena ilegal di dalam 'object' 
+    // dan sudah sepenuhnya terwakili oleh fungsi @Provides di atas.
 
     @Provides
     @Singleton
