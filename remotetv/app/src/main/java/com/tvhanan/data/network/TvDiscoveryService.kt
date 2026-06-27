@@ -63,7 +63,7 @@ class TvDiscoveryService(private val context: Context) {
             val json = org.json.JSONObject(body)
             val device = json.optJSONObject("device") ?: return@withContext null
             val name = device.optString("name", "Samsung TV").removePrefix("[TV] ")
-            val mac = device.optString("wifiMac", null)
+            val mac = device.optString("wifiMac", "").ifBlank { null }
 
             name to mac
         } catch (e: Exception) {
