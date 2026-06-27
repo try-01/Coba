@@ -58,6 +58,10 @@ import com.tvhanan.ui.theme.PrimeBlue
 import com.tvhanan.ui.theme.TextDim
 import com.tvhanan.ui.theme.TextPrimary
 import com.tvhanan.ui.theme.YoutubeRed
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.runtime.remember
+import com.tvhanan.util.HapticUtil
 
 /**
  * Layar remote utama. Dibagi 9 zona sesuai preview yang disepakati,
@@ -465,31 +469,70 @@ private fun MenuInfoGrid(viewModel: RemoteViewModel, scaleFactor: Float) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AppShortcutsRow(viewModel: RemoteViewModel, scaleFactor: Float) {
     val height = (54 * scaleFactor).dp
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        AppShortcutButton("NETFLIX", NetflixRed, Modifier.weight(1f), height) {
-            viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.NETFLIX.appId)
-        }
-        AppShortcutButton("PRIME", PrimeBlue, Modifier.weight(1f), height) {
-            viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.PRIME_VIDEO.appId)
-        }
-        AppShortcutButton("YOUTUBE", YoutubeRed, Modifier.weight(1f), height) {
-            viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.YOUTUBE.appId)
-        }
+        AppShortcutButton(
+            label = "NETFLIX",
+            color = NetflixRed,
+            modifier = Modifier.weight(1f),
+            height = height,
+            onLaunch = { viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.NETFLIX.appId) },
+            onClose = { viewModel.closeApp(com.tvhanan.domain.model.AppShortcut.NETFLIX.appId) }
+        )
+        AppShortcutButton(
+            label = "PRIME",
+            color = PrimeBlue,
+            modifier = Modifier.weight(1f),
+            height = height,
+            onLaunch = { viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.PRIME_VIDEO.appId) },
+            onClose = { viewModel.closeApp(com.tvhanan.domain.model.AppShortcut.PRIME_VIDEO.appId) }
+        )
+        AppShortcutButton(
+            label = "YOUTUBE",
+            color = YoutubeRed,
+            modifier = Modifier.weight(1f),
+            height = height,
+            onLaunch = { viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.YOUTUBE.appId) },
+            onClose = { viewModel.closeApp(com.tvhanan.domain.model.AppShortcut.YOUTUBE.appId) }
+        )
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AppShortcutButton(label: String, color: Color, modifier: Modifier, height: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
-    HapticGlassButton(
-        onClick = onClick,
-        modifier = modifier.height(height),
-        shape = RoundedCornerShape(16.dp),
-        gradientColors = listOf(color.copy(alpha = 0.18f), color.copy(alpha = 0.06f)),
-        borderColor = color.copy(alpha = 0.32f),
-        contentColor = color
+private fun AppShortcutButton(
+    label: String,
+    color: Color,
+    modifier: Modifier,
+    height: androidx.compose.ui.unit.Dp,
+    onLaunch: () -> Unit,
+    onClose: () -> Unit
+) {
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Box(
+        modifier = modifier
+            .height(height)
+            .background(
+                Brush.linearGradient(listOf(color.copy(alpha = 0.18f), color.copy(alpha = 0.06f))),
+                RoundedCornerShape(16.dp)
+            )
+            .border(1.dp, color.copy(alpha = 0.32f), RoundedCornerShape(16.dp))
+            .combinedClickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {
+                    HapticUtil.tick()
+                    onLaunch()
+                },
+                onLongClick = {
+                    HapticUtil.tick()
+                    onClose()
+                }
+            ),
+        contentAlignment = Alignment.Center
     ) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = color)
     }

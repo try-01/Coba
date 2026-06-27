@@ -101,7 +101,17 @@ class RemoteViewModel(
     }
 
     fun launchApp(appId: String) {
-        webSocketClient.launchApp(appId)
+        viewModelScope.launch {
+            val success = com.tvhanan.data.network.AppLauncher.launch(ipAddress, appId)
+            Log.d(TAG, "launchApp($appId) success=$success")
+        }
+    }
+
+    fun closeApp(appId: String) {
+        viewModelScope.launch {
+            val success = com.tvhanan.data.network.AppLauncher.close(ipAddress, appId)
+            Log.d(TAG, "closeApp($appId) success=$success")
+        }
     }
 
     fun wakeOnLan() {
