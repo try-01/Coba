@@ -4,17 +4,10 @@ import android.util.Base64
 import android.util.Log
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
-import kotlinx.coroutines.selects.select
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -46,7 +39,7 @@ class TvWebSocketClient {
             val sslCtx = SSLContext.getInstance("TLS")
             sslCtx.init(null, trustAllCerts, SecureRandom())
             OkHttpClient.Builder()
-                .pingInterval(15, TimeUnit.SECONDS) // TAMBAHKAN BARIS INI
+                .pingInterval(15, TimeUnit.SECONDS) // Mencegah TV memutus koneksi
                 .readTimeout(0, TimeUnit.MILLISECONDS)
                 .connectTimeout(8, TimeUnit.SECONDS)
                 .sslSocketFactory(sslCtx.socketFactory, trustAllCerts[0] as X509TrustManager)
@@ -60,7 +53,7 @@ class TvWebSocketClient {
 
     private val plainClient by lazy {
         OkHttpClient.Builder()
-            .pingInterval(15, TimeUnit.SECONDS) // TAMBAHKAN BARIS INI
+            .pingInterval(15, TimeUnit.SECONDS) // Mencegah TV memutus koneksi
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .connectTimeout(8, TimeUnit.SECONDS)
             .build()
@@ -80,15 +73,15 @@ class TvWebSocketClient {
     }
 
     suspend fun connect(ip: String, port: Int, token: String? = null): Result<WebSocket> {
-    disconnect() // Tutup koneksi lama (jika ada) secara paksa sebelum membuat instansiasi baru
+        disconnect() // Tutup koneksi lama (jika ada) secara paksa
 
-    return suspendCancellableCoroutine { continuation ->
-        currentToken = token
-        _connectionState.value = ConnectionState.CONNECTING
+        return suspendCancellableCoroutine { continuation ->
+            currentToken = token
+            _connectionState.value = ConnectionState.CONNECTING
 
-        Log.d(TAG, "Connecting to $ip:$port...")
+            Log.d(TAG, "Connecting to $ip:$port...")
 
-        val client = if (port == 8002) (sslClient ?: plainClient) else plainClient
+            val client = if (port == 8002) (sslClient ?: plainClient) else plainClient
             val request = Request.Builder()
                 .url(buildUrl(ip, port, currentToken))
                 .header("Origin", "https://localhost:$port")
@@ -114,10 +107,11 @@ class TvWebSocketClient {
                         Log.e(TAG, "Failed $ip:$port: $detail")
                         if (response != null) Log.e(TAG, "HTTP ${response.code}")
                         
-                        // CEK: Hanya update error jika yang gagal adalah sesi ini
+                        // Validasi agar sisa koneksi gagal tidak menimpa status yang sukses
                         if (webSocket == ws || webSocket == null) {
                             _connectionState.value = ConnectionState.ERROR
                         }
+                        
                         if (continuation.isActive) {
                             continuation.resume(Result.failure(t))
                         }
@@ -125,18 +119,21 @@ class TvWebSocketClient {
 
                     override fun onClosed(ws: WebSocket, code: Int, reason: String) {
                         Log.d(TAG, "Closed: $code $reason")
-                        // CEK: Hanya ubah jadi DISCONNECTED jika sesi yang putus adalah sesi utama
                         if (webSocket == ws) {
                             _connectionState.value = ConnectionState.DISCONNECTED
                             webSocket = null
                         }
-                    })
+                    }
+                })
 
                 webSocket = ws
 
                 continuation.invokeOnCancellation {
                     ws.close(1001, "Cancelled")
-                    _connectionState.value = ConnectionState.DISCONNECTED
+                    if (webSocket == ws) {
+                        _connectionState.value = ConnectionState.DISCONNECTED
+                        webSocket = null
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "WS error: ${e.message}")
@@ -151,6 +148,7 @@ class TvWebSocketClient {
     suspend fun connectWithFallback(ip: String, token: String? = null): Result<WebSocket> {
         Log.d(TAG, "=== Connecting $ip sequentially ===")
 
+        // Coba port 8002 lalu 8001 secara berurutan agar aman dari tabrakan state
         for (port in listOf(8002, 8001)) {
             Log.d(TAG, "Trying $ip:$port...")
             val result = connect(ip, port, token)
