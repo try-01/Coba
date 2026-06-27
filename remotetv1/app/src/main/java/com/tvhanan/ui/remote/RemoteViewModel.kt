@@ -93,7 +93,25 @@ class RemoteViewModel(
      * presentasi seperti vibration.
      */
     fun sendKey(key: RemoteKey) {
-        webSocketClient.sendKey(key)
+        // Jika menekan POWER saat TV mati/terputus, kirim paket Wake-on-LAN untuk menyalakan TV
+        if (key == RemoteKey.POWER && connectionState.value != ConnectionState.CONNECTED) {
+            wakeOnLan()
+        } else {
+            webSocketClient.sendKey(key)
+        }
+    }
+
+    fun wakeOnLan() {
+        viewModelScope.launch {
+            // Ambil MAC dari konstruktor, jika null ambil cadangan dari DataStore
+            val mac = macAddress ?: preferences?.macAddress?.first()
+            if (!mac.isNullOrBlank()) {
+                Log.d(TAG, "Mencoba menyalakan TV via WOL ke MAC: $mac")
+                WakeOnLanUtil.sendWakeOnLan(mac)
+            } else {
+                Log.e(TAG, "Gagal menjalankan WOL: Alamat MAC tidak ditemukan")
+            }
+        }
     }
 
     fun launchApp(appId: String) {
@@ -107,14 +125,6 @@ class RemoteViewModel(
         viewModelScope.launch {
             val success = com.tvhanan.data.network.AppLauncher.close(ipAddress, appId)
             Log.d(TAG, "closeApp($appId) success=$success")
-        }
-    }
-
-    fun wakeOnLan() {
-        macAddress?.let { mac ->
-            viewModelScope.launch { // BUNGKUS DENGAN INI
-                WakeOnLanUtil.sendWakeOnLan(mac)
-            }
         }
     }
 

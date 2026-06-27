@@ -187,13 +187,15 @@ class TvWebSocketClient {
         try {
             val json = JSONObject(text)
             Log.d(TAG, "Event: ${json.optString("event")}")
-            if (json.optString("event") == "ms.channel.ready") {
-                val newToken = json.optJSONObject("data")?.optString("token")
-                if (!newToken.isNullOrEmpty()) {
-                    currentToken = newToken
-                    _tokenReceived.value = newToken
-                    Log.d(TAG, "Token: $newToken")
-                }
+            
+            // Ekstrak token secara universal dari object "data", karena Samsung 
+            // sering menggunakan "ms.channel.connect" (bukan "ms.channel.ready") saat pairing awal
+            val newToken = json.optJSONObject("data")?.optString("token")
+            
+            if (!newToken.isNullOrEmpty() && currentToken != newToken) {
+                currentToken = newToken
+                _tokenReceived.value = newToken
+                Log.d(TAG, "New Token saved: $newToken")
             }
         } catch (_: Exception) {}
     }

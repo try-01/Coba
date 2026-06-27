@@ -140,9 +140,10 @@ results // CUKUP TULIS NAMA VARIABELNYA SAJA TANPA "return"
         (1..254).map { octet ->
             async {
                 val ip = "$prefix.$octet"
+                // Memprioritaskan port 8002 (Secure) dibanding port 8001 (Legacy) saat scanning subnet
                 val openPort = when {
-                    isPortOpen(ip, 8001) -> 8001
                     isPortOpen(ip, 8002) -> 8002
+                    isPortOpen(ip, 8001) -> 8001
                     else -> null
                 }
                 if (openPort != null) {

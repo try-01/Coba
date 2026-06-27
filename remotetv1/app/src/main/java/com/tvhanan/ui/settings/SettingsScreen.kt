@@ -337,7 +337,14 @@ private fun TvInfoCard(device: TvDevice?, isConnected: Boolean) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
                     MetaItem("Alamat MAC", device.macAddress ?: "Tidak diketahui", Modifier.weight(1f))
-                    MetaItem("Token tersimpan", if (device.token != null) "Ya" else "Belum", Modifier.weight(1f))
+                    
+                    // Logika tampilan status token yang lebih cerdas
+                    val tokenStatus = when {
+                        device.token != null -> "Ya"
+                        device.port == 8001 -> "Tidak perlu" // TV lawas / port 8001 tidak butuh token
+                        else -> "Belum"
+                    }
+                    MetaItem("Token", tokenStatus, Modifier.weight(1f))
                 }
             }
         } else {

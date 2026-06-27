@@ -54,9 +54,12 @@ suspend fun sendWakeOnLanWithRetry(
 }
 
     private fun parseMacAddress(mac: String): ByteArray {
-        val hex = mac.replace(":", "").replace("-", "").uppercase()
+        // Hilangkan pemisah dan spasi kosong
+        val hex = mac.replace(":", "").replace("-", "").replace(" ", "").uppercase()
+        if (hex.length != 12) {
+            throw IllegalArgumentException("Alamat MAC harus terdiri dari 12 karakter heksadesimal")
+        }
         return ByteArray(6) { i ->
             hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
         }
     }
-}
