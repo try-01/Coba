@@ -50,6 +50,7 @@ import com.tvhanan.ui.theme.NavAccent2
 import com.tvhanan.ui.theme.TextDim
 import com.tvhanan.ui.theme.TextFaint
 import com.tvhanan.ui.theme.TextPrimary
+import com.tvhanan.ui.theme.BgBase
 
 @Composable
 fun SettingsScreen(
