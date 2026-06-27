@@ -12,7 +12,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle // TAMBAHKAN INI
 import com.tvhanan.di.ServiceLocator
+import com.tvhanan.ui.settings.SettingsViewModel // TAMBAHKAN INI
 import com.tvhanan.domain.model.TvDevice
 import com.tvhanan.ui.manual.ManualConnectScreen
 import com.tvhanan.ui.remote.RemoteScreen

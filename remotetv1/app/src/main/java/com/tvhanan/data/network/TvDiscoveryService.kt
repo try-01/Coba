@@ -87,8 +87,7 @@ class TvDiscoveryService(private val context: Context) {
 
             try {
                 val results = mutableListOf<TvDevice>()
-// Gunakan scope '.use { }' agar socket PASTI di-close otomatis walau terjadi Exception
-DatagramSocket().use { socket -> 
+                DatagramSocket().use { socket -> 
     socket.soTimeout = SSDP_TIMEOUT.toInt()
 
                 val ssdpRequest = buildString {
@@ -130,7 +129,7 @@ DatagramSocket().use { socket ->
         }
     }
 }
-return results
+results // CUKUP TULIS NAMA VARIABELNYA SAJA TANPA "return"
             } finally {
                 releaseMulticastLock(multicastLock)
             }

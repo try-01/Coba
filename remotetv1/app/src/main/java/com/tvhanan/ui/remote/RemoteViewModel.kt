@@ -112,7 +112,9 @@ class RemoteViewModel(
 
     fun wakeOnLan() {
         macAddress?.let { mac ->
-            WakeOnLanUtil.sendWakeOnLan(mac)
+            viewModelScope.launch { // BUNGKUS DENGAN INI
+                WakeOnLanUtil.sendWakeOnLan(mac)
+            }
         }
     }
 

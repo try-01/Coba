@@ -33,11 +33,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.view.WindowManager
-import androidx.compose.ui.platform.LocalContext
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
 import com.tvhanan.ui.components.DpadRing
