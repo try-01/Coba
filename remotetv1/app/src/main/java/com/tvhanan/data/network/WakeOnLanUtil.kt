@@ -12,46 +12,52 @@ object WakeOnLanUtil {
     private const val TAG = "WakeOnLanUtil"
     private val WOL_PORTS = listOf(9, 7)
 
-    suspend fun sendWakeOnLan(macAddress: String, broadcastIp: String = "255.255.255.255"): Boolean = 
-    withContext(Dispatchers.IO) { // Pindahkan operasi Socket ke IO Dispatcher
-        try {
-            val macBytes = parseMacAddress(macAddress)
-            val packetBytes = ByteArray(6 + 16 * macBytes.size)
+    suspend fun sendWakeOnLan(macAddress: String, broadcastIp: String = "255.255.255.255"): Boolean =
+        withContext(Dispatchers.IO) { // Pindahkan operasi Socket ke IO Dispatcher
+            try {
+                val macBytes = parseMacAddress(macAddress)
+                val packetBytes = ByteArray(6 + 16 * macBytes.size)
 
-            for (i in 0 until 6) packetBytes[i] = 0xFF.toByte()
-            for (i in 0 until 16) {
-                System.arraycopy(macBytes, 0, packetBytes, 6 + i * macBytes.size, macBytes.size)
-            }
-
-            val address = InetAddress.getByName(broadcastIp)
-            DatagramSocket().use { socket -> // Gunakan 'use' untuk otomatis menutup socket
-                socket.broadcast = true
-                WOL_PORTS.forEach { port ->
-                    val packet = DatagramPacket(packetBytes, packetBytes.size, address, port)
-                    socket.send(packet)
+                for (i in 0 until 6) {
+                    packetBytes[i] = 0xFF.toByte()
                 }
-            }
-            Log.d(TAG, "Magic packet sent to $macAddress via $broadcastIp")
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "sendWakeOnLan failed: ${e.message}")
-            false
-        }
-    }
+                for (i in 0 until 16) {
+                    System.arraycopy(macBytes, 0, packetBytes, 6 + i * macBytes.size, macBytes.size)
+                }
 
-suspend fun sendWakeOnLanWithRetry(
-    macAddress: String,
-    broadcastIp: String = "255.255.255.255",
-    attempts: Int = 5,
-    intervalMillis: Long = 2000
-): Boolean = withContext(Dispatchers.IO) {
-    repeat(attempts) { attempt ->
-        val sent = sendWakeOnLan(macAddress, broadcastIp)
-        if (sent) Log.d(TAG, "Attempt ${attempt + 1}/$attempts sent")
-        if (attempt < attempts - 1) kotlinx.coroutines.delay(intervalMillis)
+                val address = InetAddress.getByName(broadcastIp)
+                DatagramSocket().use { socket -> // Gunakan 'use' untuk otomatis menutup socket
+                    socket.broadcast = true
+                    WOL_PORTS.forEach { port ->
+                        val packet = DatagramPacket(packetBytes, packetBytes.size, address, port)
+                        socket.send(packet)
+                    }
+                }
+                Log.d(TAG, "Magic packet sent to $macAddress via $broadcastIp")
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "sendWakeOnLan failed: ${e.message}")
+                false
+            }
+        }
+
+    suspend fun sendWakeOnLanWithRetry(
+        macAddress: String,
+        broadcastIp: String = "255.255.255.255",
+        attempts: Int = 5,
+        intervalMillis: Long = 2000
+    ): Boolean = withContext(Dispatchers.IO) {
+        repeat(attempts) { attempt ->
+            val sent = sendWakeOnLan(macAddress, broadcastIp)
+            if (sent) {
+                Log.d(TAG, "Attempt ${attempt + 1}/$attempts sent")
+            }
+            if (attempt < attempts - 1) {
+                kotlinx.coroutines.delay(intervalMillis)
+            }
+        }
+        true
     }
-    true
-}
 
     private fun parseMacAddress(mac: String): ByteArray {
         // Hilangkan pemisah dan spasi kosong
@@ -63,3 +69,4 @@ suspend fun sendWakeOnLanWithRetry(
             hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
         }
     }
+}
