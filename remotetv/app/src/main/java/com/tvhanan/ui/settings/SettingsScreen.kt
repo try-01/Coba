@@ -109,6 +109,15 @@ fun SettingsScreen(
                             description = "Masukkan IP TV secara langsung",
                             onClick = { showManualDialog = true }
                         )
+                        if (device?.macAddress != null) {
+                            SettingsRow(
+                                title = "Nyalakan TV (WOL)",
+                                description = "Bisa butuh beberapa menit setelah TV dimatikan",
+                                onClick = {
+                                    viewModel.wakeTv()
+                                }
+                            )
+                        }
                         SettingsRow(
                             title = "Lupakan TV ini",
                             description = "Hapus token & data koneksi tersimpan",

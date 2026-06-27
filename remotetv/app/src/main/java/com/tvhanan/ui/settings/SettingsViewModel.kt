@@ -146,6 +146,14 @@ class SettingsViewModel(
         }
     }
 
+    fun wakeTv() {
+        val device = _tvDevice.value ?: return
+        val mac = device.macAddress ?: return
+        viewModelScope.launch {
+            com.tvhanan.data.network.WakeOnLanUtil.sendWakeOnLanWithRetry(mac)
+        }
+    }
+
     fun resetActionState() {
         _actionState.value = ConnectionActionState.Idle
     }
