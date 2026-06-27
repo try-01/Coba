@@ -4,8 +4,10 @@ import android.util.Base64
 import android.util.Log
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,24 +35,22 @@ class TvWebSocketClient {
         private const val TAG = "TvHanan"
     }
 
-    private val trustAllCerts: Array<TrustManager>? = null // null uses system defaults
+    private val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
+        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
+        override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+    })
 
     private val sslClient by lazy {
         try {
-            val builder = OkHttpClient.Builder()
+            val sslCtx = SSLContext.getInstance("TLS")
+            sslCtx.init(null, trustAllCerts, SecureRandom())
+            OkHttpClient.Builder()
                 .readTimeout(0, TimeUnit.MILLISECONDS)
                 .connectTimeout(8, TimeUnit.SECONDS)
-            
-            // Only configure custom SSL if we have custom trust anchors
-            // Otherwise, use system defaults (secure by default)
-            trustAllCerts?.let { trustManagers ->
-                val sslCtx = SSLContext.getInstance("TLS")
-                sslCtx.init(null, trustManagers, SecureRandom())
-                builder.sslSocketFactory(sslCtx.socketFactory, trustManagers[0] as X509TrustManager)
-                    .hostnameVerifier { _, _ -> true } // Still risky but better than nothing
-            }
-            
-            builder.build()
+                .sslSocketFactory(sslCtx.socketFactory, trustAllCerts[0] as X509TrustManager)
+                .hostnameVerifier { _, _ -> true }
+                .build()
         } catch (e: Exception) {
             Log.e(TAG, "SSL client init error: ${e.message}")
             null
@@ -78,13 +78,15 @@ class TvWebSocketClient {
     }
 
     suspend fun connect(ip: String, port: Int, token: String? = null): Result<WebSocket> {
-        return suspendCancellableCoroutine { continuation ->
-            currentToken = token
-            _connectionState.value = ConnectionState.CONNECTING
+    disconnect() // Tutup koneksi lama (jika ada) secara paksa sebelum membuat instansiasi baru
 
-            Log.d(TAG, "Connecting to $ip:$port...")
+    return suspendCancellableCoroutine { continuation ->
+        currentToken = token
+        _connectionState.value = ConnectionState.CONNECTING
 
-            val client = if (port == 8002) (sslClient ?: plainClient) else plainClient
+        Log.d(TAG, "Connecting to $ip:$port...")
+
+        val client = if (port == 8002) (sslClient ?: plainClient) else plainClient
             val request = Request.Builder()
                 .url(buildUrl(ip, port, currentToken))
                 .header("Origin", "https://localhost:$port")
@@ -137,20 +139,27 @@ class TvWebSocketClient {
         }
     }
 
-    suspend fun connectWithFallback(ip: String, token: String? = null): Result<WebSocket> {
-        Log.d(TAG, "=== Connecting $ip ===")
+    suspend fun connectWithFallback(ip: String, token: String? = null): Result<WebSocket> = coroutineScope {
+    Log.d(TAG, "=== Connecting $ip concurrently ===")
 
-        for (port in listOf(8002, 8001)) {
-            Log.d(TAG, "Trying $ip:$port...")
-            val result = connect(ip, port, token)
-            if (result.isSuccess) {
-                Log.d(TAG, "Success on $ip:$port!")
-                return result
-            }
-            Log.e(TAG, "Failed $ip:$port: ${result.exceptionOrNull()?.message}")
+    // Race (balapan) kedua port, siapa yang konek duluan dia yang dipakai, 
+    // jika gagal maka skip. Waktu tunggu terpangkas dari 8 detik menjadi nyaris instan
+    val job8002 = async { connect(ip, 8002, token) }
+    val job8001 = async { connect(ip, 8001, token) }
+
+    val results = listOf(job8002.await(), job8001.await())
+    
+    val successResult = results.firstOrNull { it.isSuccess }
+    if (successResult != null) {
+        // Disconnect websocket yang mungkin telat sukses dari port satunya untuk mencegah 2 websocket aktif
+        results.filter { it != successResult && it.isSuccess }.forEach {
+            it.getOrNull()?.close(1000, "Closed by faster fallback")
         }
-        return Result.failure(Exception("TV tidak merespon"))
+        return@coroutineScope successResult
     }
+
+    return@coroutineScope Result.failure(Exception("TV tidak merespon di port 8002 & 8001"))
+}
 
     fun sendKey(key: RemoteKey): Boolean {
         return try {
@@ -158,28 +167,6 @@ class TvWebSocketClient {
             webSocket?.send(payload) ?: false
         } catch (e: Exception) {
             Log.e(TAG, "Send error: ${e.message}")
-            false
-        }
-    }
-
-/**
-     * Meluncurkan app Smart Hub via protokol ms.channel.emit/ed.apps.launch —
-     * BUKAN key press biasa seperti sendKey(). App ID Samsung berbeda-beda
-     * per rilis firmware/wilayah, jadi nilai default di sini tidak terjamin
-     * cocok di semua TV. Lihat AppLauncher.kt untuk daftar appId yang dicoba.
-     */
-    fun launchApp(appId: String): Boolean {
-        if (_connectionState.value != ConnectionState.CONNECTED) {
-            Log.e(TAG, "launchApp($appId) dibatalkan: status koneksi bukan CONNECTED")
-            return false
-        }
-        return try {
-            val payload = """{"method":"ms.channel.emit","params":{"event":"ed.apps.launch","to":"host","data":{"appId":"$appId"}}}"""
-            val sent = webSocket?.send(payload) ?: false
-            Log.d(TAG, "launchApp($appId) sent=$sent")
-            sent
-        } catch (e: Exception) {
-            Log.e(TAG, "Launch app error: ${e.message}")
             false
         }
     }

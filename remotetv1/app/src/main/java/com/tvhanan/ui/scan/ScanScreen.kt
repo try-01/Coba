@@ -21,7 +21,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,10 +43,10 @@ fun ScanScreen(
     onDeviceSelected: (TvDevice) -> Unit,
     onManualConnect: () -> Unit
 ) {
-    val devices by viewModel.devices.collectAsState()
-    val isScanning by viewModel.isScanning.collectAsState()
-    val error by viewModel.error.collectAsState()
-    val lastIp by viewModel.lastIp.collectAsState()
+    val devices by viewModel.devices.collectAsStateWithLifecycle()
+    val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
+    val lastIp by viewModel.lastIp.collectAsStateWithLifecycle()
 
     Box(modifier = Modifier.fillMaxSize()) {
         MeshGradientBackground(modifier = Modifier.fillMaxSize())

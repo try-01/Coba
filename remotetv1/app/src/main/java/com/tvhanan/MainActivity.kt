@@ -13,11 +13,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        val app = application as TvRemoteApp
+
         setContent {
             TvRemoteTheme {
                 val navController = rememberNavController()
                 TvRemoteNavGraph(
                     navController = navController,
+                    serviceLocator = app.serviceLocator,
                     onExitApp = { finish() }
                 )
             }

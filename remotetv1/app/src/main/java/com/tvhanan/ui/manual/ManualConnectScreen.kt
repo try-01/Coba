@@ -1,5 +1,6 @@
 package com.tvhanan.ui.manual
 
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -36,6 +37,7 @@ fun ManualConnectScreen(
     onConnect: (TvDevice) -> Unit,
     onBack: () -> Unit
 ) {
+    val keyboardController = LocalSoftwareKeyboardController.current // 1. Deklarasikan
     var ipAddress by remember { mutableStateOf("") }
     var macAddress by remember { mutableStateOf("") }
     var ipError by remember { mutableStateOf<String?>(null) }
@@ -115,6 +117,7 @@ fun ManualConnectScreen(
 
             HapticGlassButton(
                 onClick = {
+                    keyboardController?.hide() // 2. Tutup keyboard sebelum eksekusi aksi
                     if (validateIp(ipAddress)) {
                         val cleanMac = macAddress.trim().ifEmpty { null }
                         onConnect(
@@ -148,10 +151,7 @@ fun ManualConnectScreen(
 }
 
 private fun validateIp(ip: String): Boolean {
-    return try {
-        InetAddress.getByName(ip.trim())
-        ip.count { it == '.' } == 3
-    } catch (_: Exception) {
-        false
-    }
+    // Gunakan Regex murni agar tidak memblokir Main Thread atau memicu DNS Lookup
+    val ipRegex = "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$".toRegex()
+    return ip.trim().matches(ipRegex)
 }

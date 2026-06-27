@@ -8,34 +8,22 @@ import com.tvhanan.data.network.TvWebSocketClient
 import com.tvhanan.data.network.WakeOnLanUtil
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
-import dagger.Assisted
-import dagger.assisted.AssistedFactory
-import dagger.hilt.AssistedInject
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel(assistedFactory = RemoteViewModel.Factory::class) // Tambahkan assistedFactory di sini
-class RemoteViewModel @AssistedInject constructor(
-    @Assisted private val ipAddress: String,
-    @Assisted private val port: Int = 8001,
-    private val webSocketClient: TvWebSocketClient,
-    private val preferences: TvPreferences
+class RemoteViewModel(
+    private val ipAddress: String,
+    private val port: Int = 8001,
+    private val macAddress: String? = null,
+    private val webSocketClient: TvWebSocketClient = TvWebSocketClient(),
+    private val preferences: TvPreferences? = null
 ) : ViewModel() {
-
-    // Tambahkan interface Factory ini di dalam kelas RemoteViewModel
-    @AssistedFactory
-    interface Factory {
-        fun create(ipAddress: String, port: Int): RemoteViewModel
-    }
-
-    // ... sisa kode lainnya tetap sama ...
-
+    
+    private var tokenObserverJob: kotlinx.coroutines.Job? = null
 
     companion object {
         private const val TAG = "TvHanan"
@@ -43,27 +31,20 @@ class RemoteViewModel @AssistedInject constructor(
 
     val connectionState: StateFlow<ConnectionState> = webSocketClient.connectionState
 
-    // Catatan: showNumpad/toggleNumpad dipertahankan untuk kompatibilitas,
     // tapi RemoteScreen versi mesh/glass saat ini menampilkan numpad secara
     // selalu-terlihat (tidak collapse), sehingga state ini tidak lagi
     // dipakai oleh UI. Aman dibiarkan kalau nanti ingin kembali ke pola
     // collapse, atau bisa dihapus jika dipastikan tidak ada pemanggil lain.
-    private val _showNumpad = MutableStateFlow(false)
-    val showNumpad: StateFlow<Boolean> = _showNumpad.asStateFlow()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    fun toggleNumpad() {
-        _showNumpad.value = !_showNumpad.value
-    }
-
     private val _lastSavedToken = MutableStateFlow<String?>(null)
-
+    
     fun connect() {
         Log.d(TAG, "connect() called for $ipAddress")
         viewModelScope.launch {
-            val savedToken = preferences.getToken()
+            val savedToken = preferences?.getToken()
             Log.d(TAG, "savedToken = ${if (savedToken == null) "null" else "exists"}")
 
             val result = webSocketClient.connectWithFallback(ipAddress, savedToken)
@@ -71,15 +52,16 @@ class RemoteViewModel @AssistedInject constructor(
             if (result.isSuccess) {
                 Log.d(TAG, "Connection succeeded")
                 if (savedToken == null) {
-                    launch {
-                        val newToken = webSocketClient.tokenReceived
-                            .filterNotNull()
-                            .first()
-                        preferences.saveToken(newToken)
-                        _lastSavedToken.value = newToken
-                        Log.d(TAG, "First token saved: $newToken")
-                    }
-                } else {
+    tokenObserverJob?.cancel() // Batalkan job pengamat token lama sebelum meluncurkan yang baru
+    tokenObserverJob = launch {
+        val newToken = webSocketClient.tokenReceived
+            .filterNotNull()
+            .first()
+        preferences?.saveToken(newToken)
+        _lastSavedToken.value = newToken
+        Log.d(TAG, "First token saved: $newToken")
+    }
+} else {
                     _lastSavedToken.value = savedToken
                 }
             } else {
@@ -115,12 +97,21 @@ class RemoteViewModel @AssistedInject constructor(
     }
 
     fun launchApp(appId: String) {
-        webSocketClient.launchApp(appId)
+        viewModelScope.launch {
+            val success = com.tvhanan.data.network.AppLauncher.launch(ipAddress, appId)
+            Log.d(TAG, "launchApp($appId) success=$success")
+        }
+    }
+
+    fun closeApp(appId: String) {
+        viewModelScope.launch {
+            val success = com.tvhanan.data.network.AppLauncher.close(ipAddress, appId)
+            Log.d(TAG, "closeApp($appId) success=$success")
+        }
     }
 
     fun wakeOnLan() {
-        val mac = preferences.macAddress.firstOrNull()
-        if (mac != null) {
+        macAddress?.let { mac ->
             WakeOnLanUtil.sendWakeOnLan(mac)
         }
     }

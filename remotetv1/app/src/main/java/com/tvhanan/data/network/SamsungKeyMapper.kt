@@ -18,16 +18,4 @@ object SamsungKeyMapper {
             })
         }.toString()
     }
-
-    fun createPairingPayload(): String {
-        return JSONObject().apply {
-            put("method", REMOTE_CONTROL_CHANNEL)
-            put("params", JSONObject().apply {
-                put("Cmd", "Click")
-                put("DataOfCmd", "KEY_POWER")
-                put("Option", "false")
-                put("TypeOfRemote", "SendRemoteKey")
-            })
-        }.toString()
-    }
 }

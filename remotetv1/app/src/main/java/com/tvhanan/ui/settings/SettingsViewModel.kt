@@ -1,107 +1,160 @@
-package com.tvhanan.ui.remote
+package com.tvhanan.ui.settings
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tvhanan.data.local.TvPreferences
-import com.tvhanan.data.network.TvWebSocketClient
-import com.tvhanan.data.network.WakeOnLanUtil
-import com.tvhanan.domain.model.ConnectionState
-import com.tvhanan.domain.model.RemoteKey
-import dagger.assisted.Assisted       // DIPERBAIKI: Import yang benar
-import dagger.assisted.AssistedInject // DIPERBAIKI: Import yang benar
-import dagger.hilt.android.lifecycle.HiltViewModel
+import com.tvhanan.data.network.TvDiscoveryService
+import com.tvhanan.domain.model.TvDevice
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class RemoteViewModel @AssistedInject constructor(
-    @Assisted private val ipAddress: String,
-    @Assisted private val port: Int = 8001,
-    private val webSocketClient: TvWebSocketClient,
-    private val preferences: TvPreferences
+/** Status sebuah aksi koneksi (reconnect/scan) yang ditampilkan sbg modal di SettingsScreen. */
+sealed interface ConnectionActionState {
+    data object Idle : ConnectionActionState
+    data object Loading : ConnectionActionState
+    data class ReconnectSuccess(val device: TvDevice) : ConnectionActionState
+    data class ScanResult(val devices: List<TvDevice>) : ConnectionActionState
+    data class Failed(val message: String) : ConnectionActionState
+}
+
+/**
+ * Preferensi tampilan remote. Catatan implementasi: `remoteSize` saat ini
+ * disimpan di state SettingsViewModel tapi BELUM dikonsumsi oleh
+ * RemoteScreen — untuk efek visual sungguhan (tombol membesar/mengecil),
+ * RemoteScreen perlu membaca preferensi ini (mis. lewat ServiceLocator
+ * yang menyediakan SettingsViewModel sbg singleton, atau lewat
+ * SavedStateHandle/DataStore bersama) dan mengalikan ukuran dp tombol
+ * dengan faktor skala sesuai RemoteSize. Ditandai jelas di sini supaya
+ * tidak disangka sudah berfungsi penuh.
+ */
+data class RemoteUiPreferences(
+    val hapticEnabled: Boolean = true,
+    val keepScreenOn: Boolean = true,
+    val meshBackgroundEnabled: Boolean = true,
+    val remoteSize: RemoteSize = RemoteSize.FIT
+)
+
+enum class RemoteSize(val scaleFactor: Float) {
+    COMPACT(0.86f),
+    FIT(1.0f),
+    LARGE(1.14f)
+}
+
+class SettingsViewModel(
+    private val preferences: TvPreferences,
+    private val discoveryService: TvDiscoveryService
 ) : ViewModel() {
 
     companion object {
-        private const val TAG = "TvHanan"
+        private const val TAG = "SettingsViewModel"
     }
 
-    val connectionState: StateFlow<ConnectionState> = webSocketClient.connectionState
+    private val _tvDevice = MutableStateFlow<TvDevice?>(null)
+    val tvDevice: StateFlow<TvDevice?> = _tvDevice.asStateFlow()
 
-    private val _showNumpad = MutableStateFlow(false)
-    val showNumpad: StateFlow<Boolean> = _showNumpad.asStateFlow()
+    private val _isActuallyConnected = MutableStateFlow(false)
+    val isActuallyConnected: StateFlow<Boolean> = _isActuallyConnected.asStateFlow()
 
-    private val _errorMessage = MutableStateFlow<String?>(null)
-    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+    private val _uiPreferences = MutableStateFlow(RemoteUiPreferences())
+    val uiPreferences: StateFlow<RemoteUiPreferences> = _uiPreferences.asStateFlow()
 
-    fun toggleNumpad() {
-        _showNumpad.value = !_showNumpad.value
+    private val _actionState = MutableStateFlow<ConnectionActionState>(ConnectionActionState.Idle)
+    val actionState: StateFlow<ConnectionActionState> = _actionState.asStateFlow()
+
+    init {
+        loadCurrentDevice()
     }
 
-    private val _lastSavedToken = MutableStateFlow<String?>(null)
-
-    fun connect() {
-        Log.d(TAG, "connect() called for $ipAddress")
+    private fun loadCurrentDevice() {
         viewModelScope.launch {
-            val savedToken = preferences.getToken()
-            Log.d(TAG, "savedToken = ${if (savedToken == null) "null" else "exists"}")
-
-            val result = webSocketClient.connectWithFallback(ipAddress, savedToken)
-
-            if (result.isSuccess) {
-                Log.d(TAG, "Connection succeeded")
-                if (savedToken == null) {
-                    launch {
-                        val newToken = webSocketClient.tokenReceived
-                            .filterNotNull()
-                            .first()
-                        preferences.saveToken(newToken)
-                        _lastSavedToken.value = newToken
-                        Log.d(TAG, "First token saved: $newToken")
-                    }
-                } else {
-                    _lastSavedToken.value = savedToken
-                }
-            } else {
-                val errorMsg = result.exceptionOrNull()?.message ?: "Gagal terhubung ke TV"
-                Log.e(TAG, "Connection failed: $errorMsg")
-                _errorMessage.value = errorMsg
+            val ip = preferences.lastIp.first()
+            val port = preferences.lastPort.first()?.toIntOrNull() ?: 8001
+            val mac = preferences.macAddress.first()
+            if (ip != null) {
+                _tvDevice.value = TvDevice(ipAddress = ip, port = port, macAddress = mac)
             }
         }
     }
 
-    suspend fun observeNewToken(onNewToken: suspend (String) -> Unit) {
-        _lastSavedToken.filterNotNull().collect { token ->
-            onNewToken(token)
+/** Dipanggil RemoteScreen begitu IP/port/mac aktif diketahui, supaya
+     * TvInfoCard di Settings langsung akurat tanpa menunggu DataStore. */
+    fun setActiveDevice(ipAddress: String, port: Int, macAddress: String?, token: String? = null, isConnected: Boolean = false) {
+        _tvDevice.value = TvDevice(ipAddress = ipAddress, port = port, macAddress = macAddress, token = token)
+        _isActuallyConnected.value = isConnected
+    }
+
+    fun setHapticEnabled(enabled: Boolean) {
+        _uiPreferences.value = _uiPreferences.value.copy(hapticEnabled = enabled)
+    }
+
+    fun setKeepScreenOn(enabled: Boolean) {
+        _uiPreferences.value = _uiPreferences.value.copy(keepScreenOn = enabled)
+    }
+
+    fun setMeshBackgroundEnabled(enabled: Boolean) {
+        _uiPreferences.value = _uiPreferences.value.copy(meshBackgroundEnabled = enabled)
+    }
+
+    fun setRemoteSize(size: RemoteSize) {
+        _uiPreferences.value = _uiPreferences.value.copy(remoteSize = size)
+    }
+
+    fun reconnect() {
+        val device = _tvDevice.value ?: return
+        viewModelScope.launch {
+            _actionState.value = ConnectionActionState.Loading
+            try {
+                // Reconnect WebSocket sesungguhnya dilakukan oleh RemoteViewModel
+                // saat RemoteScreen dibuka kembali. Di sini kita hanya verifikasi
+                // host terjangkau di jaringan, supaya modal Settings bisa memberi
+                // feedback cepat sebelum user kembali ke RemoteScreen.
+                val reachable = discoveryService.isHostReachable(device.ipAddress, device.port)
+                _actionState.value = if (reachable) {
+                    ConnectionActionState.ReconnectSuccess(device)
+                } else {
+                    ConnectionActionState.Failed("TV tidak merespons di ${device.ipAddress}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Reconnect probe failed", e)
+                _actionState.value = ConnectionActionState.Failed(e.message ?: "Gagal menghubungkan ulang")
+            }
         }
     }
 
-    fun sendKey(key: RemoteKey) {
-        webSocketClient.sendKey(key)
-    }
-
-    fun launchApp(appId: String) {
-        webSocketClient.launchApp(appId)
-    }
-
-    fun wakeOnLan() {
-        val mac = preferences.macAddress.firstOrNull()
-        if (mac != null) {
-            WakeOnLanUtil.sendWakeOnLan(mac)
+    fun scanForOtherTvs() {
+        viewModelScope.launch {
+            _actionState.value = ConnectionActionState.Loading
+            try {
+                val devices = discoveryService.discoverDevices()
+                _actionState.value = ConnectionActionState.ScanResult(devices)
+            } catch (e: Exception) {
+                Log.e(TAG, "Scan failed", e)
+                _actionState.value = ConnectionActionState.Failed(e.message ?: "Gagal memindai jaringan")
+            }
         }
     }
 
-    fun disconnect() {
-        webSocketClient.disconnect()
+    fun forgetTv() {
+        viewModelScope.launch {
+            preferences.clear()
+            _tvDevice.value = null
+            _actionState.value = ConnectionActionState.Idle
+        }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        disconnect()
+    fun wakeTv() {
+        val device = _tvDevice.value ?: return
+        val mac = device.macAddress ?: return
+        viewModelScope.launch {
+            com.tvhanan.data.network.WakeOnLanUtil.sendWakeOnLanWithRetry(mac)
+        }
+    }
+
+    fun resetActionState() {
+        _actionState.value = ConnectionActionState.Idle
     }
 }

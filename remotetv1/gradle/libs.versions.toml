@@ -9,14 +9,6 @@ coreKtx = "1.15.0"
 activityCompose = "1.9.3"
 navigationCompose = "2.8.5"
 lifecycle = "2.8.7"
-hilt = "2.49"
-hilt-android-compiler = "2.48"
-hilt-navigation-compose = "1.0.0"
-hilt-compiler = "1.0.0"
-hilt-lifecycle-viewmodel = "1.0.0-alpha03"
-protobuf = "3.21.12"
-protobuf-kotlin = "3.21.12"
-hilt-android-gradle-plugin = "2.48"
 
 [libraries]
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -35,18 +27,8 @@ datastore = { group = "androidx.datastore", name = "datastore-preferences", vers
 coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
-hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
-hilt-android-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt-android-compiler" }
-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hilt-navigation-compose" }
-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hilt-compiler" }
-hilt-lifecycle-viewmodel = { group = "androidx.hilt", name = "lifecycle-viewmodel-hilt", version.ref = "hilt-lifecycle-viewmodel" }
-protobuf = { group = "com.google.protobuf", name = "protobuf-javalite", version.ref = "protobuf" }
-protobuf-kotlin = { group = "com.google.protobuf", name = "protobuf-kotlin-lite", version.ref = "protobuf-kotlin" }
-datastore-core = { group = "androidx.datastore", name = "datastore-core", version.ref = "datastore" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
-hilt-android-gradle-plugin = { id = "com.google.dagger.hilt.android", version.ref = "hilt-android-gradle-plugin" }

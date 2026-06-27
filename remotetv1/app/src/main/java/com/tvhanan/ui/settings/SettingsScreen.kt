@@ -23,7 +23,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,9 +57,9 @@ fun SettingsScreen(
     onForgetAndExitToScan: () -> Unit,
     onExitApp: () -> Unit
 ) {
-    val device by viewModel.tvDevice.collectAsState()
-    val prefs by viewModel.uiPreferences.collectAsState()
-    val actionState by viewModel.actionState.collectAsState()
+    val device by viewModel.tvDevice.collectAsStateWithLifecycle()
+    val prefs by viewModel.uiPreferences.collectAsStateWithLifecycle()
+    val actionState by viewModel.actionState.collectAsStateWithLifecycle()
 
     var showManualDialog by remember { mutableStateOf(false) }
     var showForgetDialog by remember { mutableStateOf(false) }
@@ -78,7 +78,7 @@ fun SettingsScreen(
             item { SettingsHeaderBar(onBack) }
 
             item {
-                val isConnected by viewModel.isActuallyConnected.collectAsState()
+                val isConnected by viewModel.isActuallyConnected.collectAsStateWithLifecycle()
                 TvInfoCard(device, isConnected)
             }
 
@@ -109,6 +109,15 @@ fun SettingsScreen(
                             description = "Masukkan IP TV secara langsung",
                             onClick = { showManualDialog = true }
                         )
+                        if (device?.macAddress != null) {
+                            SettingsRow(
+                                title = "Nyalakan TV (WOL)",
+                                description = "Bisa butuh beberapa menit setelah TV dimatikan",
+                                onClick = {
+                                    viewModel.wakeTv()
+                                }
+                            )
+                        }
                         SettingsRow(
                             title = "Lupakan TV ini",
                             description = "Hapus token & data koneksi tersimpan",

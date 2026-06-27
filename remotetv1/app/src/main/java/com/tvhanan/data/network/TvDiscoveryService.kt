@@ -8,9 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.Inet4Address
@@ -19,27 +17,6 @@ import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.Socket
 import java.net.SocketTimeoutException
-
-// Fungsi pembantu logika retry yang mandiri, aman, dan tanpa error
-private suspend inline fun <T> retryable(
-    times: Int = 3,
-    delayMillis: Long = 500L,
-    predicate: (Throwable) -> Boolean = { true },
-    crossinline block: suspend () -> T
-): T {
-    var attempt = 0
-    while (true) {
-        try {
-            return block()
-        } catch (e: Throwable) {
-            attempt++
-            if (attempt >= times || !predicate(e)) {
-                throw e
-            }
-            delay(delayMillis)
-        }
-    }
-}
 
 class TvDiscoveryService(private val context: Context) {
 
@@ -60,47 +37,40 @@ class TvDiscoveryService(private val context: Context) {
         scanSubnet(subnet)
     }
 
-    /**
+/**
      * Ambil info dasar TV (nama model, MAC wifi asli) lewat endpoint
      * HTTP /api/v2/ yang tidak butuh pairing/token sama sekali — berguna
      * untuk menampilkan nama TV yang sebenarnya di hasil scan, bukan
      * generik "Samsung TV". Dipanggil setelah port terbuka terdeteksi.
      */
-    private suspend fun fetchDeviceInfo(ip: String, port: Int): Pair<String, String?>? = 
-        withContext(Dispatchers.IO) {
-            retryable(
-                times = 2,
-                delayMillis = 300L,
-                predicate = { it is SocketTimeoutException || it is IOException }
-            ) {
-                try {
-                    val url = java.net.URL("http://$ip:$port/api/v2/")
-                    val connection = url.openConnection() as java.net.HttpURLConnection
-                    connection.connectTimeout = 2000
-                    connection.readTimeout = 2000
-                    connection.requestMethod = "GET"
+    private suspend fun fetchDeviceInfo(ip: String): Pair<String, String?>? = withContext(Dispatchers.IO) {
+        try {
+            val url = java.net.URL("http://$ip:8001/api/v2/")
+            val connection = url.openConnection() as java.net.HttpURLConnection
+            connection.connectTimeout = 2000
+            connection.readTimeout = 2000
+            connection.requestMethod = "GET"
 
-                    val responseCode = connection.responseCode
-                    if (responseCode != 200) {
-                        connection.disconnect()
-                        return@retryable null
-                    }
-
-                    val body = connection.inputStream.bufferedReader().use { it.readText() }
-                    connection.disconnect()
-
-                    val json = org.json.JSONObject(body)
-                    val device = json.optJSONObject("device") ?: return@retryable null
-                    val name = device.optString("name", "Samsung TV").removePrefix("[TV] ")
-                    val mac = device.optString("wifiMac", null)
-
-                    name to mac
-                } catch (e: Exception) {
-                    Log.w(TAG, "fetchDeviceInfo attempt failed for $ip:$port: ${e.message}")
-                    throw e // Biarkan fungsi retryable yang menangani
-                }
+            val responseCode = connection.responseCode
+            if (responseCode != 200) {
+                connection.disconnect()
+                return@withContext null
             }
+
+            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            connection.disconnect()
+
+            val json = org.json.JSONObject(body)
+            val device = json.optJSONObject("device") ?: return@withContext null
+            val name = device.optString("name", "Samsung TV").removePrefix("[TV] ")
+            val mac = device.optString("wifiMac", "").ifBlank { null }
+
+            name to mac
+        } catch (e: Exception) {
+            Log.e(TAG, "fetchDeviceInfo failed for $ip: ${e.message}")
+            null
         }
+    }
 
     /**
      * Cek apakah sebuah host:port bisa dijangkau (TCP connect singkat).
@@ -116,8 +86,10 @@ class TvDiscoveryService(private val context: Context) {
             val multicastLock = acquireMulticastLock()
 
             try {
-                val socket = DatagramSocket()
-                socket.soTimeout = SSDP_TIMEOUT.toInt()
+                val results = mutableListOf<TvDevice>()
+// Gunakan scope '.use { }' agar socket PASTI di-close otomatis walau terjadi Exception
+DatagramSocket().use { socket -> 
+    socket.soTimeout = SSDP_TIMEOUT.toInt()
 
                 val ssdpRequest = buildString {
                     append("M-SEARCH * HTTP/1.1\r\n")
@@ -136,36 +108,29 @@ class TvDiscoveryService(private val context: Context) {
                 )
                 socket.send(sendPacket)
 
-                val results = mutableListOf<TvDevice>()
                 val startTime = System.currentTimeMillis()
+    while (System.currentTimeMillis() - startTime < SSDP_TIMEOUT) {
+        try {
+            val buffer = ByteArray(1024)
+            val packet = DatagramPacket(buffer, buffer.size)
+            socket.receive(packet)
 
-                while (System.currentTimeMillis() - startTime < SSDP_TIMEOUT) {
-                     try {
-                         val buffer = ByteArray(1024)
-                         val packet = DatagramPacket(buffer, buffer.size)
-                         socket.receive(packet)
-
-                         val response = String(packet.data, 0, packet.length)
-                         val ip = parseLocationIp(response)
-                         if (ip != null && !results.any { it.ipAddress == ip }) {
-                             val info = fetchDeviceInfo(ip, 8001) // SSDP biasanya menggunakan port 8001
-                             results.add(
-                                 TvDevice(
-                                     ipAddress = ip,
-                                     name = info?.first ?: "Samsung TV",
-                                     macAddress = info?.second
-                                 )
-                             )
-                         }
-                     } catch (_: SocketTimeoutException) {
-                         break
-                     } catch (_: Exception) {
-                         continue
-                     }
-                 }
-
-                socket.close()
-                results
+            val response = String(packet.data, 0, packet.length)
+            val ip = parseLocationIp(response)
+            if (ip != null && !results.any { it.ipAddress == ip }) {
+                val info = fetchDeviceInfo(ip)
+                results.add(
+                    TvDevice(ipAddress = ip, name = info?.first ?: "Samsung TV", macAddress = info?.second)
+                )
+            }
+        } catch (_: SocketTimeoutException) {
+            break
+        } catch (_: Exception) {
+            continue
+        }
+    }
+}
+return results
             } finally {
                 releaseMulticastLock(multicastLock)
             }
@@ -182,7 +147,7 @@ class TvDiscoveryService(private val context: Context) {
                     else -> null
                 }
                 if (openPort != null) {
-                    val info = fetchDeviceInfo(ip, openPort) // DIPERBAIKI: Menambahkan parameter openPort
+                    val info = fetchDeviceInfo(ip)
                     TvDevice(
                         ipAddress = ip,
                         name = info?.first ?: "Samsung TV",
@@ -196,41 +161,40 @@ class TvDiscoveryService(private val context: Context) {
         }.awaitAll().filterNotNull()
     }
 
-    private suspend fun isPortOpen(ip: String, port: Int): Boolean = 
-    withContext(Dispatchers.IO) {
-        retryable(times = 2, delayMillis = 100L) {
-            try {
-                val socket = Socket()
-                socket.connect(InetSocketAddress(ip, port), SCAN_TIMEOUT)
-                socket.close()
-                true
-            } catch (e: Exception) {
-                false
-            }
+    private fun isPortOpen(ip: String, port: Int): Boolean {
+        return try {
+            val socket = Socket()
+            socket.connect(InetSocketAddress(ip, port), SCAN_TIMEOUT)
+            socket.close()
+            true
+        } catch (_: Exception) {
+            false
         }
     }
 
     private fun getLocalIpPrefix(): String? {
-        return try {
-            val interfaces = NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val networkInterface = interfaces.nextElement()
-                if (networkInterface.isLoopback || !networkInterface.isUp) continue
+    return try {
+        val interfaces = NetworkInterface.getNetworkInterfaces().toList()
+        
+        // Filter interface aktif, lalu prioritaskan Wi-Fi (wlan0, wlan1, dst) di urutan pertama
+        val activeInterfaces = interfaces
+            .filter { !it.isLoopback && it.isUp }
+            .sortedByDescending { it.name.startsWith("wlan") }
 
-                val addresses = networkInterface.inetAddresses
-                while (addresses.hasMoreElements()) {
-                    val addr = addresses.nextElement()
-                    if (addr is Inet4Address && !addr.isLoopbackAddress) {
-                        val ip = addr.hostAddress ?: continue
-                        return ip.substringBeforeLast(".")
-                    }
+        for (networkInterface in activeInterfaces) {
+            val addresses = networkInterface.inetAddresses.toList()
+            for (addr in addresses) {
+                if (addr is Inet4Address && !addr.isLoopbackAddress) {
+                    val ip = addr.hostAddress ?: continue
+                    return ip.substringBeforeLast(".") // Berhasil mengunci prefix jaringan Wi-Fi
                 }
             }
-            null
-        } catch (_: Exception) {
-            null
         }
+        null
+    } catch (_: Exception) {
+        null
     }
+}
 
     private var acquiredLock: WifiManager.MulticastLock? = null
 

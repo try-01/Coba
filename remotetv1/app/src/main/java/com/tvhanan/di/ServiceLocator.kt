@@ -10,14 +10,4 @@ class ServiceLocator(context: Context) {
     val preferences: TvPreferences by lazy { TvPreferences(context) }
     val discoveryService: TvDiscoveryService by lazy { TvDiscoveryService(context) }
 
-    /**
-     * SettingsViewModel disimpan sebagai singleton (bukan dibuat ulang per
-     * navigasi composable seperti ViewModel screen lain) supaya preferensi
-     * tampilan (remoteSize, hapticEnabled, dst) tetap konsisten dan bisa
-     * dibaca bersama oleh RemoteScreen maupun SettingsScreen tanpa perlu
-     * disimpan ulang lewat DataStore/SavedStateHandle.
-     */
-    val settingsViewModel: SettingsViewModel by lazy {
-        SettingsViewModel(preferences = preferences, discoveryService = discoveryService)
-    }
 }

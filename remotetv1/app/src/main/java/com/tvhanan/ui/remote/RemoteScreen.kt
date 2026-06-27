@@ -1,5 +1,8 @@
 package com.tvhanan.ui.remote
 
+import android.app.Activity
+import android.view.WindowManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +33,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.view.WindowManager
+import androidx.compose.ui.platform.LocalContext
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
 import com.tvhanan.ui.components.DpadRing
@@ -58,6 +66,10 @@ import com.tvhanan.ui.theme.PrimeBlue
 import com.tvhanan.ui.theme.TextDim
 import com.tvhanan.ui.theme.TextPrimary
 import com.tvhanan.ui.theme.YoutubeRed
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.runtime.remember
+import com.tvhanan.util.HapticUtil
 
 /**
  * Layar remote utama. Dibagi 9 zona sesuai preview yang disepakati,
@@ -71,14 +83,38 @@ import com.tvhanan.ui.theme.YoutubeRed
  *   supaya touch target & layout flow tetap akurat — beda dari pendekatan
  *   CSS transform:scale() di preview HTML yang sempat menyebabkan overlap).
  */
+
+tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 @Composable
 fun RemoteScreen(
     viewModel: RemoteViewModel,
     onOpenSettings: () -> Unit,
-    scaleFactor: Float = 1f
+    scaleFactor: Float = 1f,
+    keepScreenOn: Boolean = true // Tambahkan argumen ini
 ) {
-    val connectionState by viewModel.connectionState.collectAsState()
-    val errorMessage by viewModel.errorMessage.collectAsState()
+    val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
+    val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // Set Flag Window agar layar HP tidak meredup/mati 
+    DisposableEffect(keepScreenOn) {
+        val window = context.findActivity()?.window
+        if (keepScreenOn) {
+            window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+    
+    // ... Lanjutan kode asli LaunchedEffect & Box UI
 
     LaunchedEffect(Unit) {
         viewModel.connect()
@@ -465,31 +501,70 @@ private fun MenuInfoGrid(viewModel: RemoteViewModel, scaleFactor: Float) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AppShortcutsRow(viewModel: RemoteViewModel, scaleFactor: Float) {
     val height = (54 * scaleFactor).dp
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        AppShortcutButton("NETFLIX", NetflixRed, Modifier.weight(1f), height) {
-            viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.NETFLIX.appId)
-        }
-        AppShortcutButton("PRIME", PrimeBlue, Modifier.weight(1f), height) {
-            viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.PRIME_VIDEO.appId)
-        }
-        AppShortcutButton("YOUTUBE", YoutubeRed, Modifier.weight(1f), height) {
-            viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.YOUTUBE.appId)
-        }
+        AppShortcutButton(
+            label = "NETFLIX",
+            color = NetflixRed,
+            modifier = Modifier.weight(1f),
+            height = height,
+            onLaunch = { viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.NETFLIX.appId) },
+            onClose = { viewModel.closeApp(com.tvhanan.domain.model.AppShortcut.NETFLIX.appId) }
+        )
+        AppShortcutButton(
+            label = "PRIME",
+            color = PrimeBlue,
+            modifier = Modifier.weight(1f),
+            height = height,
+            onLaunch = { viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.PRIME_VIDEO.appId) },
+            onClose = { viewModel.closeApp(com.tvhanan.domain.model.AppShortcut.PRIME_VIDEO.appId) }
+        )
+        AppShortcutButton(
+            label = "YOUTUBE",
+            color = YoutubeRed,
+            modifier = Modifier.weight(1f),
+            height = height,
+            onLaunch = { viewModel.launchApp(com.tvhanan.domain.model.AppShortcut.YOUTUBE.appId) },
+            onClose = { viewModel.closeApp(com.tvhanan.domain.model.AppShortcut.YOUTUBE.appId) }
+        )
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AppShortcutButton(label: String, color: Color, modifier: Modifier, height: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
-    HapticGlassButton(
-        onClick = onClick,
-        modifier = modifier.height(height),
-        shape = RoundedCornerShape(16.dp),
-        gradientColors = listOf(color.copy(alpha = 0.18f), color.copy(alpha = 0.06f)),
-        borderColor = color.copy(alpha = 0.32f),
-        contentColor = color
+private fun AppShortcutButton(
+    label: String,
+    color: Color,
+    modifier: Modifier,
+    height: androidx.compose.ui.unit.Dp,
+    onLaunch: () -> Unit,
+    onClose: () -> Unit
+) {
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Box(
+        modifier = modifier
+            .height(height)
+            .background(
+                Brush.linearGradient(listOf(color.copy(alpha = 0.18f), color.copy(alpha = 0.06f))),
+                RoundedCornerShape(16.dp)
+            )
+            .border(1.dp, color.copy(alpha = 0.32f), RoundedCornerShape(16.dp))
+            .combinedClickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {
+                    HapticUtil.tick()
+                    onLaunch()
+                },
+                onLongClick = {
+                    HapticUtil.tick()
+                    onClose()
+                }
+            ),
+        contentAlignment = Alignment.Center
     ) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = color)
     }

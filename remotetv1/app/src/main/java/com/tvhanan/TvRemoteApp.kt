@@ -1,16 +1,17 @@
 package com.tvhanan
 
 import android.app.Application
-import com.tvhanan.util.CrashReporter
+import com.tvhanan.di.ServiceLocator
 import com.tvhanan.util.HapticUtil
-import dagger.hilt.android.HiltAndroidApp // DIPERBAIKI: Menambahkan import Hilt yang hilang
 
-@HiltAndroidApp
 class TvRemoteApp : Application() {
+
+    lateinit var serviceLocator: ServiceLocator
+        private set
 
     override fun onCreate() {
         super.onCreate()
-        CrashReporter.initialize(this)
+        serviceLocator = ServiceLocator(this)
         HapticUtil.init(this)
     }
 }
