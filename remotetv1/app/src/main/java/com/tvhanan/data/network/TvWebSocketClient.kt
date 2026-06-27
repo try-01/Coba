@@ -46,6 +46,7 @@ class TvWebSocketClient {
             val sslCtx = SSLContext.getInstance("TLS")
             sslCtx.init(null, trustAllCerts, SecureRandom())
             OkHttpClient.Builder()
+                .pingInterval(15, TimeUnit.SECONDS) // TAMBAHKAN BARIS INI
                 .readTimeout(0, TimeUnit.MILLISECONDS)
                 .connectTimeout(8, TimeUnit.SECONDS)
                 .sslSocketFactory(sslCtx.socketFactory, trustAllCerts[0] as X509TrustManager)
@@ -59,6 +60,7 @@ class TvWebSocketClient {
 
     private val plainClient by lazy {
         OkHttpClient.Builder()
+            .pingInterval(15, TimeUnit.SECONDS) // TAMBAHKAN BARIS INI
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .connectTimeout(8, TimeUnit.SECONDS)
             .build()
@@ -111,7 +113,11 @@ class TvWebSocketClient {
                         val detail = t.message ?: t.javaClass.simpleName
                         Log.e(TAG, "Failed $ip:$port: $detail")
                         if (response != null) Log.e(TAG, "HTTP ${response.code}")
-                        _connectionState.value = ConnectionState.ERROR
+                        
+                        // CEK: Hanya update error jika yang gagal adalah sesi ini
+                        if (webSocket == ws || webSocket == null) {
+                            _connectionState.value = ConnectionState.ERROR
+                        }
                         if (continuation.isActive) {
                             continuation.resume(Result.failure(t))
                         }
@@ -119,9 +125,12 @@ class TvWebSocketClient {
 
                     override fun onClosed(ws: WebSocket, code: Int, reason: String) {
                         Log.d(TAG, "Closed: $code $reason")
-                        _connectionState.value = ConnectionState.DISCONNECTED
-                    }
-                })
+                        // CEK: Hanya ubah jadi DISCONNECTED jika sesi yang putus adalah sesi utama
+                        if (webSocket == ws) {
+                            _connectionState.value = ConnectionState.DISCONNECTED
+                            webSocket = null
+                        }
+                    })
 
                 webSocket = ws
 
@@ -139,27 +148,20 @@ class TvWebSocketClient {
         }
     }
 
-    suspend fun connectWithFallback(ip: String, token: String? = null): Result<WebSocket> = coroutineScope {
-    Log.d(TAG, "=== Connecting $ip concurrently ===")
+    suspend fun connectWithFallback(ip: String, token: String? = null): Result<WebSocket> {
+        Log.d(TAG, "=== Connecting $ip sequentially ===")
 
-    // Race (balapan) kedua port, siapa yang konek duluan dia yang dipakai, 
-    // jika gagal maka skip. Waktu tunggu terpangkas dari 8 detik menjadi nyaris instan
-    val job8002 = async { connect(ip, 8002, token) }
-    val job8001 = async { connect(ip, 8001, token) }
-
-    val results = listOf(job8002.await(), job8001.await())
-    
-    val successResult = results.firstOrNull { it.isSuccess }
-    if (successResult != null) {
-        // Disconnect websocket yang mungkin telat sukses dari port satunya untuk mencegah 2 websocket aktif
-        results.filter { it != successResult && it.isSuccess }.forEach {
-            it.getOrNull()?.close(1000, "Closed by faster fallback")
+        for (port in listOf(8002, 8001)) {
+            Log.d(TAG, "Trying $ip:$port...")
+            val result = connect(ip, port, token)
+            if (result.isSuccess) {
+                Log.d(TAG, "Success on $ip:$port!")
+                return result
+            }
+            Log.e(TAG, "Failed $ip:$port: ${result.exceptionOrNull()?.message}")
         }
-        return@coroutineScope successResult
+        return Result.failure(Exception("TV tidak merespon di port 8002 maupun 8001"))
     }
-
-    return@coroutineScope Result.failure(Exception("TV tidak merespon di port 8002 & 8001"))
-}
 
     fun sendKey(key: RemoteKey): Boolean {
         return try {
