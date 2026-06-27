@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -67,11 +69,16 @@ fun SettingsScreen(
     var showActionDialog by remember { mutableStateOf(false) }
     var pendingAction by remember { mutableStateOf("") }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        MeshGradientBackground(modifier = Modifier.fillMaxSize())
+    Box(modifier = Modifier.fillMaxSize().background(BgBase)) {
+        // Sinkronisasi efek aurora latar belakang halaman Pengaturan
+        if (prefs.meshBackgroundEnabled) {
+            MeshGradientBackground(modifier = Modifier.fillMaxSize())
+        }
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding(),
             contentPadding = PaddingValues(18.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
@@ -110,11 +117,18 @@ fun SettingsScreen(
                             onClick = { showManualDialog = true }
                         )
                         if (device?.macAddress != null) {
+                            val context = androidx.compose.ui.platform.LocalContext.current
                             SettingsRow(
                                 title = "Nyalakan TV (WOL)",
                                 description = "Bisa butuh beberapa menit setelah TV dimatikan",
                                 onClick = {
                                     viewModel.wakeTv()
+                                    // Tampilkan pesan melayang (Toast) instan sebagai feedback visual
+                                    android.widget.Toast.makeText(
+                                        context, 
+                                        "Sinyal bangun (WOL) telah dikirim ke TV", 
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
                                 }
                             )
                         }

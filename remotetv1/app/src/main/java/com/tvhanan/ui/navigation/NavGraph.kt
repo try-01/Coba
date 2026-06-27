@@ -187,12 +187,14 @@ fun TvRemoteNavGraph(
 RemoteScreen(
     viewModel = viewModel,
     onOpenSettings = {
-    navController.navigate(Routes.SETTINGS) {
-        launchSingleTop = true // Mencegah halaman ditumpuk ganda jika tombol terkena double-tap
-    }
-},
+        navController.navigate(Routes.SETTINGS) {
+            launchSingleTop = true // Mencegah halaman ditumpuk ganda jika tombol terkena double-tap
+        }
+    },
     scaleFactor = uiPrefs.remoteSize.scaleFactor,
-    keepScreenOn = uiPrefs.keepScreenOn // Hubungkan State ini agar UI Remote dapat membacanya
+    keepScreenOn = uiPrefs.keepScreenOn,
+    hapticEnabled = uiPrefs.hapticEnabled,                 // SALURKAN STATE GETAR DI SINI
+    meshBackgroundEnabled = uiPrefs.meshBackgroundEnabled   // SALURKAN STATE AURORA DI SINI
 )
         }
 

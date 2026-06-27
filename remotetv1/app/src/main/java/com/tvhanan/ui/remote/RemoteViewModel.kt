@@ -41,6 +41,17 @@ class RemoteViewModel(
 
     private val _lastSavedToken = MutableStateFlow<String?>(null)
     
+    // State baru untuk mendeteksi apakah TV ini mendukung WOL (memiliki MAC terdaftar)
+    private val _isMacAvailable = MutableStateFlow(false)
+    val isMacAvailable: StateFlow<Boolean> = _isMacAvailable.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            val mac = macAddress ?: preferences?.macAddress?.first()
+            _isMacAvailable.value = !mac.isNullOrBlank()
+        }
+    }
+    
     fun connect() {
         Log.d(TAG, "connect() called for $ipAddress")
         viewModelScope.launch {
@@ -103,13 +114,32 @@ class RemoteViewModel(
 
     fun wakeOnLan() {
         viewModelScope.launch {
-            // Ambil MAC dari konstruktor, jika null ambil cadangan dari DataStore
             val mac = macAddress ?: preferences?.macAddress?.first()
             if (!mac.isNullOrBlank()) {
-                Log.d(TAG, "Mencoba menyalakan TV via WOL ke MAC: $mac")
-                WakeOnLanUtil.sendWakeOnLan(mac)
+                Log.d(TAG, "Mencoba menyalakan TV via WoL (dengan Retry) ke MAC: $mac")
+                
+                // 1. Kirim Magic Packet berulang lewat utility retry agar TV pasti terbangun
+                val success = WakeOnLanUtil.sendWakeOnLanWithRetry(mac)
+                
+                if (success) {
+                    // 2. OPTIMASI PREMIUM: Auto-Reconnect Loop
+                    // TV Tizen membutuhkan waktu booting ~5-15 detik sebelum server WebSocket internalnya aktif.
+                    // Kita buat aplikasi otomatis mencoba menghubungkan kembali setiap 4 detik sebanyak 4 kali percobaan.
+                    launch {
+                        _errorMessage.value = "TV sedang dinyalakan, mencoba menghubungkan kembali..."
+                        kotlinx.coroutines.delay(4000) // Beri waktu TV untuk inisialisasi hardware awal
+                        
+                        repeat(4) { attempt ->
+                            if (connectionState.value != ConnectionState.CONNECTED) {
+                                Log.d(TAG, "Auto-reconnect setelah WOL, percobaan ke-${attempt + 1}")
+                                connect() // Panggil fungsi koneksi WebSocket utama
+                                kotlinx.coroutines.delay(4000) // Jeda antar percobaan koneksi
+                            }
+                        }
+                    }
+                }
             } else {
-                Log.e(TAG, "Gagal menjalankan WOL: Alamat MAC tidak ditemukan")
+                Log.e(TAG, "Gagal menjalankan WoL: Alamat MAC tidak ditemukan")
             }
         }
     }

@@ -1,22 +1,27 @@
 package com.tvhanan.ui.remote
 
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.view.WindowManager
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,16 +30,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.content.Context
-import android.content.ContextWrapper
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
 import com.tvhanan.ui.components.DpadRing
@@ -42,43 +47,15 @@ import com.tvhanan.ui.components.HapticGlassButton
 import com.tvhanan.ui.components.HapticGlassLabelButton
 import com.tvhanan.ui.components.MeshGradientBackground
 import com.tvhanan.ui.components.ZoneLabel
-import com.tvhanan.ui.theme.AccentWarn
-import com.tvhanan.ui.theme.BgBase
-import com.tvhanan.ui.theme.ColorKeyBlue
-import com.tvhanan.ui.theme.ColorKeyGreen
-import com.tvhanan.ui.theme.ColorKeyRed
-import com.tvhanan.ui.theme.ColorKeyYellow
-import com.tvhanan.ui.theme.ConnectedColor
-import com.tvhanan.ui.theme.ConnectingColor
-import com.tvhanan.ui.theme.DisconnectedColor
-import com.tvhanan.ui.theme.GlassBorder
-import com.tvhanan.ui.theme.MediaAccent
-import com.tvhanan.ui.theme.MediaAccent2
-import com.tvhanan.ui.theme.NavAccent
-import com.tvhanan.ui.theme.NavAccent2
-import com.tvhanan.ui.theme.NetflixRed
-import com.tvhanan.ui.theme.PowerGradientEnd
-import com.tvhanan.ui.theme.PowerGradientStart
-import com.tvhanan.ui.theme.PrimeBlue
-import com.tvhanan.ui.theme.TextDim
-import com.tvhanan.ui.theme.TextPrimary
-import com.tvhanan.ui.theme.YoutubeRed
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.runtime.remember
+import com.tvhanan.ui.theme.*
 import com.tvhanan.util.HapticUtil
 
 /**
  * Layar remote utama. Dibagi 9 zona sesuai preview yang disepakati,
  * ditampilkan via LazyColumn + stickyHeader bawaan Compose Foundation
- * (bukan implementasi manual) supaya status bar + tombol Settings
- * selalu terlihat saat scroll panjang ke bawah.
+ * supaya status bar + tombol Settings selalu terlihat saat scroll panjang ke bawah.
  *
- * @param scaleFactor faktor skala ukuran tombol, berasal dari
- *   SettingsViewModel.uiPreferences.remoteSize.scaleFactor (1.0 = normal).
- *   Dikalikan ke dp tinggi/ukuran komponen kunci (bukan via Modifier.scale,
- *   supaya touch target & layout flow tetap akurat — beda dari pendekatan
- *   CSS transform:scale() di preview HTML yang sempat menyebabkan overlap).
+ * @param scaleFactor faktor skala ukuran tombol, berasal dari SettingsViewModel.
  */
 
 tailrec fun Context.findActivity(): Activity? = when (this) {
@@ -92,11 +69,19 @@ fun RemoteScreen(
     viewModel: RemoteViewModel,
     onOpenSettings: () -> Unit,
     scaleFactor: Float = 1f,
-    keepScreenOn: Boolean = true // Tambahkan argumen ini
+    keepScreenOn: Boolean = true,
+    hapticEnabled: Boolean = true,           // Parameter baru untuk sinkronisasi getar
+    meshBackgroundEnabled: Boolean = true     // Parameter baru untuk sinkronisasi aurora
 ) {
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val isMacAvailable by viewModel.isMacAvailable.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // SINKRONISASI GETAR: Hubungkan setelan dinamis haptic ke utility getar
+    LaunchedEffect(hapticEnabled) {
+        HapticUtil.isEnabled = hapticEnabled
+    }
 
     // Set Flag Window agar layar HP tidak meredup/mati 
     DisposableEffect(keepScreenOn) {
@@ -110,40 +95,53 @@ fun RemoteScreen(
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
-    
-    // ... Lanjutan kode asli LaunchedEffect & Box UI
 
     LaunchedEffect(Unit) {
         viewModel.connect()
     }
 
-    // RemoteViewModel di project ini dibuat via remember(ip, port) { ... } di
-    // NavGraph, BUKAN lewat ViewModelProvider/viewModel() Compose Navigation.
-    // Itu berarti onCleared() (yang berisi disconnect()) tidak otomatis
-    // dipanggil oleh lifecycle ViewModel saat navigasi keluar dari screen ini.
-    // DisposableEffect memastikan disconnect() tetap terpanggil saat
-    // composable ini di-dispose (mis. user menekan back atau navigasi lain),
-    // supaya koneksi WebSocket tidak menggantung.
     DisposableEffect(Unit) {
         onDispose {
             viewModel.disconnect()
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        MeshGradientBackground(modifier = Modifier.fillMaxSize())
+    Box(modifier = Modifier.fillMaxSize().background(BgBase)) {
+        // Hanya gambar aurora jika fitur diaktifkan di menu Pengaturan
+        if (meshBackgroundEnabled) {
+            MeshGradientBackground(modifier = Modifier.fillMaxSize())
+        }
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()      // Padding otomatis setinggi Status Bar (Atas)
+                .navigationBarsPadding(),  // Padding otomatis setinggi Tombol Navigasi Sistem (Bawah)
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy((18 * scaleFactor).dp)
         ) {
             item {
-                RemoteHeaderBar(connectionState = connectionState, onSettingsClick = onOpenSettings)
+                RemoteHeaderBar(
+                    connectionState = connectionState,
+                    isMacAvailable = isMacAvailable,
+                    onSettingsClick = onOpenSettings
+                )
             }
 
-            errorMessage?.let { message ->
-                item { ErrorBanner(message = message, onRetry = { viewModel.connect() }) }
+            // Tampilkan Banner Siaga pintar jika TV offline namun memiliki MAC (bisa di-WOL)
+            if (connectionState == ConnectionState.ERROR || connectionState == ConnectionState.DISCONNECTED) {
+                if (isMacAvailable) {
+                    item { 
+                        StandbyBanner(
+                            onWakeClick = { viewModel.wakeOnLan() }, 
+                            scaleFactor = scaleFactor 
+                        ) 
+                    }
+                } else {
+                    errorMessage?.let { message ->
+                        item { ErrorBanner(message = message, onRetry = { viewModel.connect() }) }
+                    }
+                }
             }
 
             item { PowerSourceSleepRow(viewModel, scaleFactor) }
@@ -217,12 +215,17 @@ fun RemoteScreen(
 }
 
 @Composable
-private fun RemoteHeaderBar(connectionState: ConnectionState, onSettingsClick: () -> Unit) {
-    val (label, color) = when (connectionState) {
-        ConnectionState.CONNECTED -> "Connected" to ConnectedColor
-        ConnectionState.CONNECTING -> "Menghubungkan..." to ConnectingColor
-        ConnectionState.DISCONNECTED -> "Terputus" to DisconnectedColor
-        ConnectionState.ERROR -> "Error" to DisconnectedColor
+private fun RemoteHeaderBar(
+    connectionState: ConnectionState, 
+    isMacAvailable: Boolean,
+    onSettingsClick: () -> Unit
+) {
+    val (label, color) = when {
+        connectionState == ConnectionState.CONNECTED -> "Connected" to ConnectedColor
+        connectionState == ConnectionState.CONNECTING -> "Menghubungkan..." to ConnectingColor
+        isMacAvailable && (connectionState == ConnectionState.DISCONNECTED || connectionState == ConnectionState.ERROR) -> "Siaga (Standby)" to ConnectingColor
+        connectionState == ConnectionState.DISCONNECTED -> "Terputus" to DisconnectedColor
+        else -> "Error" to DisconnectedColor
     }
 
     Row(
@@ -253,7 +256,7 @@ private fun RemoteHeaderBar(connectionState: ConnectionState, onSettingsClick: (
             modifier = Modifier.size(34.dp),
             shape = CircleShape
         ) {
-            Text("\u2699", color = TextDim, style = MaterialTheme.typography.bodyMedium)
+            Text("⚙", color = TextDim, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
@@ -280,6 +283,42 @@ private fun ErrorBanner(message: String, onRetry: () -> Unit) {
 }
 
 @Composable
+private fun StandbyBanner(onWakeClick: () -> Unit, scaleFactor: Float) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(NavAccent2.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
+            .border(1.dp, NavAccent2.copy(alpha = 0.25f), RoundedCornerShape(18.dp))
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("⏻", color = NavAccent2, fontSize = (28 * scaleFactor).sp)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "TV dalam Mode Siaga (Standby)",
+            color = TextPrimary,
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Tekan tombol daya merah di bawah atau tombol di bawah ini untuk menyalakan TV.",
+            color = TextDim,
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(14.dp))
+        HapticGlassButton(
+            onClick = onWakeClick,
+            modifier = Modifier.fillMaxWidth().height((44 * scaleFactor).dp),
+            gradientColors = listOf(NavAccent.copy(alpha = 0.20f), NavAccent2.copy(alpha = 0.16f)),
+            borderColor = NavAccent.copy(alpha = 0.35f)
+        ) {
+            Text("Nyalakan TV (WOL)", color = TextPrimary, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
 private fun PowerSourceSleepRow(viewModel: RemoteViewModel, scaleFactor: Float) {
     val height = (60 * scaleFactor).dp
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -289,19 +328,22 @@ private fun PowerSourceSleepRow(viewModel: RemoteViewModel, scaleFactor: Float) 
             gradientColors = listOf(PowerGradientStart.copy(alpha = 0.24f), PowerGradientEnd.copy(alpha = 0.16f)),
             borderColor = PowerGradientStart.copy(alpha = 0.38f)
         ) {
-            Text("Power", color = Color(0xFFFFB199), style = MaterialTheme.typography.bodySmall)
+            // Menggunakan Simbol Daya IEC ⏻ (Unicode Power)
+            Text("⏻", color = Color(0xFFFFB199), style = MaterialTheme.typography.titleLarge, fontSize = (22 * scaleFactor).sp)
         }
         HapticGlassButton(
             onClick = { viewModel.sendKey(RemoteKey.SOURCE) },
             modifier = Modifier.weight(1f).height(height)
         ) {
-            Text("Source", color = TextPrimary, style = MaterialTheme.typography.bodySmall)
+            // Menggunakan Simbol Input Berputar/Siklus ⇥
+            Text("⇥", color = TextPrimary, style = MaterialTheme.typography.titleLarge, fontSize = (20 * scaleFactor).sp)
         }
         HapticGlassButton(
             onClick = { viewModel.sendKey(RemoteKey.HDMI) },
             modifier = Modifier.weight(1f).height(height)
         ) {
-            Text("HDMI", color = TextPrimary, style = MaterialTheme.typography.bodySmall)
+            // Menggunakan Simbol Steker/Konektor Kabel 🔌
+            Text("🔌", color = TextPrimary, style = MaterialTheme.typography.titleLarge, fontSize = (18 * scaleFactor).sp)
         }
     }
 }
@@ -311,22 +353,22 @@ private fun BackHomeExitRow(viewModel: RemoteViewModel, scaleFactor: Float) {
     val height = (50 * scaleFactor).dp
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         HapticGlassLabelButton(
-            label = "Back",
+            label = "↶", // Menggunakan Kurva Putar Balik untuk 'Back'
             onClick = { viewModel.sendKey(RemoteKey.BACK) },
             modifier = Modifier.weight(1f).height(height),
-            fontSize = 13.sp
+            fontSize = (20 * scaleFactor).sp
         )
         HapticGlassLabelButton(
-            label = "Home",
+            label = "⌂", // Menggunakan Simbol Rumah Klasik untuk 'Home'
             onClick = { viewModel.sendKey(RemoteKey.HOME) },
             modifier = Modifier.weight(1f).height(height),
-            fontSize = 13.sp
+            fontSize = (22 * scaleFactor).sp
         )
         HapticGlassLabelButton(
-            label = "Exit",
+            label = "✕", // Menggunakan Cross Ramping untuk 'Exit'
             onClick = { viewModel.sendKey(RemoteKey.EXIT) },
             modifier = Modifier.weight(1f).height(height),
-            fontSize = 13.sp
+            fontSize = (18 * scaleFactor).sp
         )
     }
 }
@@ -337,26 +379,26 @@ private fun VolumeChannelSection(viewModel: RemoteViewModel, scaleFactor: Float)
         PillRow(
             scaleFactor = scaleFactor,
             cells = listOf(
-                PillCell("\u2212", isSymbol = true) { viewModel.sendKey(RemoteKey.VOL_DOWN) },
-                PillCell("VOL", isSymbol = false) { },
+                PillCell("−", isSymbol = true) { viewModel.sendKey(RemoteKey.VOL_DOWN) },
+                PillCell("🔊", isSymbol = true) { }, // VOL -> Speaker Ikon
                 PillCell("+", isSymbol = true) { viewModel.sendKey(RemoteKey.VOL_UP) },
-                PillCell("Mute", isSymbol = false) { viewModel.sendKey(RemoteKey.MUTE) }
+                PillCell("🔇", isSymbol = true) { viewModel.sendKey(RemoteKey.MUTE) } // Mute -> Mute Ikon
             )
         )
         PillRow(
             scaleFactor = scaleFactor,
             cells = listOf(
-                PillCell("\u2212", isSymbol = true) { viewModel.sendKey(RemoteKey.CH_DOWN) },
-                PillCell("CH", isSymbol = false) { },
+                PillCell("−", isSymbol = true) { viewModel.sendKey(RemoteKey.CH_DOWN) },
+                PillCell("📺", isSymbol = true) { }, // CH -> TV Ikon
                 PillCell("+", isSymbol = true) { viewModel.sendKey(RemoteKey.CH_UP) },
-                PillCell("List", isSymbol = false) { viewModel.sendKey(RemoteKey.CH_LIST) }
+                PillCell("☰", isSymbol = true) { viewModel.sendKey(RemoteKey.CH_LIST) } // List -> Menu List Ikon
             )
         )
         HapticGlassLabelButton(
-            label = "PRE-CH",
+            label = "⇄", // PRE-CH -> Simbol Tukar Saluran Dua Arah
             onClick = { viewModel.sendKey(RemoteKey.PRE_CH) },
             modifier = Modifier.fillMaxWidth().height((46 * scaleFactor).dp),
-            fontSize = 11.sp
+            fontSize = (20 * scaleFactor).sp
         )
     }
 }
@@ -476,9 +518,9 @@ private fun MediaTransportRow(viewModel: RemoteViewModel, scaleFactor: Float) {
 @Composable
 private fun MenuInfoGrid(viewModel: RemoteViewModel, scaleFactor: Float) {
     val items = listOf(
-        Triple("Menu", RemoteKey.MENU, "\u2630"),
-        Triple("Guide", RemoteKey.GUIDE, "\uD83D\uDCC5"),
-        Triple("Info", RemoteKey.INFO, "\u2139")
+        Triple("☰", RemoteKey.MENU, "☰"),  // Menu -> List Rata Kiri
+        Triple("📅", RemoteKey.GUIDE, "📅"), // Guide -> Kalender Agenda
+        Triple("ℹ", RemoteKey.INFO, "ℹ")   // Info -> Huruf i Informasi
     )
     val height = (58 * scaleFactor).dp
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -488,11 +530,13 @@ private fun MenuInfoGrid(viewModel: RemoteViewModel, scaleFactor: Float) {
                 modifier = Modifier.weight(1f).height(height),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(icon, color = TextPrimary.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(label, color = TextDim, style = MaterialTheme.typography.bodySmall)
-                }
+                // Tampilan bersih terpusat tanpa sub-label teks di bawahnya
+                Text(
+                    text = icon,
+                    color = TextPrimary.copy(alpha = 0.85f),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontSize = (20 * scaleFactor).sp
+                )
             }
         }
     }
