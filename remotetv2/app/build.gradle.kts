@@ -54,6 +54,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.datastore)
     implementation(libs.security.crypto)
+    implementation(libs.errorprone.annotations)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
     implementation(libs.core.ktx)
