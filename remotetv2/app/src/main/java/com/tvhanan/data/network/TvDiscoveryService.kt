@@ -44,9 +44,9 @@ class TvDiscoveryService(private val context: Context) {
      * untuk menampilkan nama TV yang sebenarnya di hasil scan, bukan
      * generik "Samsung TV". Dipanggil setelah port terbuka terdeteksi.
      */
-    private suspend fun fetchDeviceInfo(ip: String, port: Int = 8001): Pair<String, String?>? = withContext(Dispatchers.IO) {
+    private suspend fun fetchDeviceInfo(ip: String): Pair<String, String?>? = withContext(Dispatchers.IO) {
         try {
-            val url = java.net.URL("http://$ip:$port/api/v2/")
+            val url = java.net.URL("http://$ip:8001/api/v2/")
             val connection = url.openConnection() as java.net.HttpURLConnection
             connection.connectTimeout = 2000
             connection.readTimeout = 2000
@@ -149,7 +149,7 @@ class TvDiscoveryService(private val context: Context) {
                         else -> null
                     }
                     if (openPort != null) {
-                        val info = fetchDeviceInfo(ip, openPort)
+                        val info = fetchDeviceInfo(ip)
                         TvDevice(
                             ipAddress = ip,
                             name = info?.first ?: "Samsung TV",
