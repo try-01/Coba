@@ -28,12 +28,13 @@ import com.tvhanan.domain.model.ConnectionState
 object Routes {
     const val SCAN = "scan"
     const val MANUAL = "manual"
-    const val REMOTE = "remote/{ip}/{port}"
+    const val REMOTE = "remote/{ip}/{port}?mac={mac}"
     const val SETTINGS = "settings"
 
-    fun remoteRoute(device: TvDevice) = "remote/${device.ipAddress}/${device.port}"
-    // Selaraskan nilai bawaan port ke 8002 demi konsistensi koneksi terenkripsi
-    fun remoteRoute(ip: String, port: Int = 8002) = "remote/$ip/$port"
+    fun remoteRoute(device: TvDevice) =
+        "remote/${device.ipAddress}/${device.port}?mac=${device.macAddress ?: ""}"
+    fun remoteRoute(ip: String, port: Int = 8002, mac: String? = null) =
+        "remote/$ip/$port?mac=${mac ?: ""}"
 }
 
 /**
@@ -60,7 +61,8 @@ fun TvRemoteNavGraph(
         val savedIp = serviceLocator.repository.lastIp.first()
         value = if (savedIp != null) {
             val savedPort = serviceLocator.repository.lastPort.first()?.toIntOrNull() ?: 8002
-            Routes.remoteRoute(savedIp, savedPort)
+            val savedMac = serviceLocator.repository.macAddress.first()
+            Routes.remoteRoute(savedIp, savedPort, savedMac)
         } else {
             Routes.SCAN
         }
@@ -84,8 +86,9 @@ fun TvRemoteNavGraph(
                     scope.launch {
                         serviceLocator.repository.saveLastIp(device.ipAddress)
                         serviceLocator.repository.saveLastPort(device.port.toString())
+                        device.macAddress?.let { serviceLocator.repository.saveMacAddress(it) }
+                        navController.navigate(Routes.remoteRoute(device))
                     }
-                    navController.navigate(Routes.remoteRoute(device))
                 },
                 onManualConnect = {
                     navController.navigate(Routes.MANUAL)
@@ -100,9 +103,9 @@ fun TvRemoteNavGraph(
                         serviceLocator.repository.saveLastIp(device.ipAddress)
                         serviceLocator.repository.saveLastPort(device.port.toString())
                         device.macAddress?.let { serviceLocator.repository.saveMacAddress(it) }
-                    }
-                    navController.navigate(Routes.remoteRoute(device)) {
-                        popUpTo(Routes.SCAN)
+                        navController.navigate(Routes.remoteRoute(device)) {
+                            popUpTo(Routes.SCAN)
+                        }
                     }
                 },
                 onBack = {
@@ -115,17 +118,19 @@ fun TvRemoteNavGraph(
             route = Routes.REMOTE,
             arguments = listOf(
                 navArgument("ip") { type = NavType.StringType },
-                navArgument("port") { type = NavType.IntType; defaultValue = 8002 } // Selaraskan ke 8002
+                navArgument("port") { type = NavType.IntType; defaultValue = 8002 },
+                navArgument("mac") { type = NavType.StringType; defaultValue = "" }
             )
         ) { backStackEntry ->
             val ip = backStackEntry.arguments?.getString("ip") ?: return@composable
-            val port = backStackEntry.arguments?.getInt("port") ?: 8002 // Selaraskan ke 8002
+            val port = backStackEntry.arguments?.getInt("port") ?: 8002
+            val mac = backStackEntry.arguments?.getString("mac")?.ifBlank { null }
 
             val viewModel: RemoteViewModel = viewModel(
                 factory = object : ViewModelProvider.Factory {
                     @Suppress("UNCHECKED_CAST")
                     override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return RemoteViewModel(ip, port, null, serviceLocator.repository) as T
+                        return RemoteViewModel(ip, port, mac, serviceLocator.repository) as T
                     }
                 }
             )

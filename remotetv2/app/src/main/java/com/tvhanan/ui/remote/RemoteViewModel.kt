@@ -40,8 +40,13 @@ class RemoteViewModel(
 
     init {
         viewModelScope.launch {
-            val mac = macAddress ?: repository.macAddress.firstOrNull()
-            _isMacAvailable.value = !mac.isNullOrBlank()
+            if (macAddress != null) {
+                _isMacAvailable.value = true
+            } else {
+                repository.macAddress.collect { mac ->
+                    _isMacAvailable.value = !mac.isNullOrBlank()
+                }
+            }
         }
     }
     
