@@ -18,7 +18,7 @@ import kotlinx.coroutines.runBlocking
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "tv_settings")
 
-class TvPreferences(context: Context) {
+class TvPreferences(private val context: Context) {
 
     private val cryptoUtil = CryptoUtil(context)
 

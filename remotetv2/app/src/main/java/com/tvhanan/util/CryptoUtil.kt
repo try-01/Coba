@@ -3,7 +3,6 @@ package com.tvhanan.util
 import android.content.Context
 import android.util.Base64
 import androidx.security.crypto.MasterKey
-import java.security.spec.GCMParameterSpec
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 
@@ -15,7 +14,7 @@ class CryptoUtil(context: Context) {
 
     fun encrypt(plaintext: String): String {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
-            init(Cipher.ENCRYPT_MODE, masterKey.getSecretKey())
+            init(Cipher.ENCRYPT_MODE, masterKey)
         }
         val iv = cipher.iv
         val encrypted = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
@@ -28,7 +27,7 @@ class CryptoUtil(context: Context) {
             val iv = decoded.copyOfRange(0, 12)
             val encrypted = decoded.copyOfRange(12, decoded.size)
             val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
-                init(Cipher.DECRYPT_MODE, masterKey.getSecretKey(), GCMParameterSpec(128, iv))
+                init(Cipher.DECRYPT_MODE, masterKey, GCMParameterSpec(128, iv))
             }
             String(cipher.doFinal(encrypted), Charsets.UTF_8)
         } catch (e: Exception) {

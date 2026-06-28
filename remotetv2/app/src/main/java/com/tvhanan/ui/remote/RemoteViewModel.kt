@@ -122,7 +122,7 @@ class RemoteViewModel(
 
     fun wakeOnLan() {
         viewModelScope.launch {
-            val mac = macAddress ?: preferences?.macAddress?.first()
+            val mac = macAddress ?: preferences?.macAddress?.firstOrNull()
             if (!mac.isNullOrBlank()) {
                 Log.d(TAG, "Mencoba menyalakan TV via WoL (dengan Retry) ke MAC: $mac")
                 
