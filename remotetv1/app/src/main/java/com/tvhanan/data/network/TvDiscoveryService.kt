@@ -25,7 +25,7 @@ class TvDiscoveryService(private val context: Context) {
         private const val SSDP_PORT = 1900
         private const val SSDP_TIMEOUT = 4000L
         private const val SCAN_TIMEOUT = 300
-        private const val TARGET_PORT = 8001
+        // HAPUS TARGET_PORT karena sudah tidak digunakan lagi (Dead Code)
         private const val TAG = "TvDiscoveryService"
     }
 
@@ -174,7 +174,8 @@ results // CUKUP TULIS NAMA VARIABELNYA SAJA TANPA "return"
 
     private fun getLocalIpPrefix(): String? {
     return try {
-        val interfaces = NetworkInterface.getNetworkInterfaces().toList()
+        // Berikan penanganan null-safety jika sistem mengembalikan nilai null saat tidak ada interface aktif
+        val interfaces = NetworkInterface.getNetworkInterfaces()?.toList() ?: emptyList()
         
         // Filter interface aktif, lalu prioritaskan Wi-Fi (wlan0, wlan1, dst) di urutan pertama
         val activeInterfaces = interfaces

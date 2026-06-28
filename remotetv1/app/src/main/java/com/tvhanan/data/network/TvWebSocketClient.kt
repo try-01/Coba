@@ -31,7 +31,8 @@ class TvWebSocketClient {
     private val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
         override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
         override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
-        override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        // Menggunakan larik kosong statis yang aman dari ClassCastException
+        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
     })
 
     private val sslClient by lazy {

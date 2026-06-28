@@ -14,10 +14,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.tvhanan.data.network.AppLauncher
 
 class RemoteViewModel(
     private val ipAddress: String,
-    private val port: Int = 8001,
+    private val port: Int = 8002, // Selaraskan port bawaan ke 8002
     private val macAddress: String? = null,
     private val webSocketClient: TvWebSocketClient = TvWebSocketClient(),
     private val preferences: TvPreferences? = null
@@ -54,6 +55,7 @@ class RemoteViewModel(
     
     fun connect() {
         Log.d(TAG, "connect() called for $ipAddress")
+        _errorMessage.value = null // Bersihkan error lama agar banner langsung hilang saat mencoba menyambung kembali
         viewModelScope.launch {
             val savedToken = preferences?.getToken()
             Log.d(TAG, "savedToken = ${if (savedToken == null) "null" else "exists"}")
@@ -63,16 +65,16 @@ class RemoteViewModel(
             if (result.isSuccess) {
                 Log.d(TAG, "Connection succeeded")
                 if (savedToken == null) {
-    tokenObserverJob?.cancel() // Batalkan job pengamat token lama sebelum meluncurkan yang baru
-    tokenObserverJob = launch {
-        val newToken = webSocketClient.tokenReceived
-            .filterNotNull()
-            .first()
-        preferences?.saveToken(newToken)
-        _lastSavedToken.value = newToken
-        Log.d(TAG, "First token saved: $newToken")
-    }
-} else {
+                    tokenObserverJob?.cancel() // Batalkan job pengamat token lama sebelum meluncurkan yang baru
+                    tokenObserverJob = launch {
+                        val newToken = webSocketClient.tokenReceived
+                            .filterNotNull()
+                            .first()
+                        preferences?.saveToken(newToken)
+                        _lastSavedToken.value = newToken
+                        Log.d(TAG, "First token saved: $newToken")
+                    }
+                } else {
                     _lastSavedToken.value = savedToken
                 }
             } else {
@@ -146,14 +148,14 @@ class RemoteViewModel(
 
     fun launchApp(appId: String) {
         viewModelScope.launch {
-            val success = com.tvhanan.data.network.AppLauncher.launch(ipAddress, appId)
+            val success = AppLauncher.launch(ipAddress, appId) // Jauh lebih bersih
             Log.d(TAG, "launchApp($appId) success=$success")
         }
     }
 
     fun closeApp(appId: String) {
         viewModelScope.launch {
-            val success = com.tvhanan.data.network.AppLauncher.close(ipAddress, appId)
+            val success = AppLauncher.close(ipAddress, appId) // Jauh lebih bersih
             Log.d(TAG, "closeApp($appId) success=$success")
         }
     }
