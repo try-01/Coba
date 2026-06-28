@@ -12,7 +12,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 import java.security.GeneralSecurityException
@@ -60,7 +60,10 @@ class TvPreferences(private val context: Context) {
     val lastIp: Flow<String?> = context.preferencesFlow.map { it[KEY_LAST_IP] }
     val lastPort: Flow<String?> = context.preferencesFlow.map { it[KEY_LAST_PORT] }
     val macAddress: Flow<String?> = context.preferencesFlow.map { it[KEY_MAC_ADDRESS] }
-    val remoteSize: Flow<Int> = context.preferencesFlow.map { it.getInt(KEY_REMOTE_SIZE, 1) }
+    val remoteSize: Flow<Int> = context.preferencesFlow.map { prefs ->
+        val intVal = prefs[Preferences.Key("remote_size")]
+        if (intVal is Int) intVal else 1
+    }
 
     // Token dibaca dari EncryptedSharedPreferences (bukan Flow karena enkripsi synchronous)
     fun getToken(): String? = encryptedPrefs.getString(KEY_TOKEN, null)

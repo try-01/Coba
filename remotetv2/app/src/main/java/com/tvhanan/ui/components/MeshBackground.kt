@@ -45,36 +45,39 @@ fun MeshGradientBackground(modifier: Modifier = Modifier) {
 }
 
 private class MeshDrawCache {
-    private var lastSize: androidx.compose.ui.unit.IntSize? = null
+    private var lastWidth: Int = -1
+    private var lastHeight: Int = -1
     private var cachedCommands: (DrawScope.() -> Unit)? = null
     
     fun drawMesh(drawScope: DrawScope) {
-        val currentSize = drawScope.size
-        if (lastSize != currentSize || cachedCommands == null) {
-            lastSize = currentSize
+        val currentWidth = drawScope.size.width.roundToInt()
+        val currentHeight = drawScope.size.height.roundToInt()
+        if (lastWidth != currentWidth || lastHeight != currentHeight || cachedCommands == null) {
+            lastWidth = currentWidth
+            lastHeight = currentHeight
             cachedCommands = {
                 drawMeshBlob(
                     color = MeshBlob1,
-                    center = Offset(currentSize.width * 0.08f, currentSize.height * 0.05f),
-                    radius = currentSize.width * 0.62f,
+                    center = Offset(currentWidth * 0.08f, currentHeight * 0.05f),
+                    radius = currentWidth * 0.62f,
                     alpha = 0.65f
                 )
                 drawMeshBlob(
                     color = MeshBlob2,
-                    center = Offset(currentSize.width * 0.96f, currentSize.height * 0.24f),
-                    radius = currentSize.width * 0.58f,
+                    center = Offset(currentWidth * 0.96f, currentHeight * 0.24f),
+                    radius = currentWidth * 0.58f,
                     alpha = 0.55f
                 )
                 drawMeshBlob(
                     color = MeshBlob3,
-                    center = Offset(currentSize.width * 0.10f, currentSize.height * 0.56f),
-                    radius = currentSize.width * 0.62f,
+                    center = Offset(currentWidth * 0.10f, currentHeight * 0.56f),
+                    radius = currentWidth * 0.62f,
                     alpha = 0.48f
                 )
                 drawMeshBlob(
                     color = MeshBlob4,
-                    center = Offset(currentSize.width * 0.92f, currentSize.height * 0.74f),
-                    radius = currentSize.width * 0.58f,
+                    center = Offset(currentWidth * 0.92f, currentHeight * 0.74f),
+                    radius = currentWidth * 0.58f,
                     alpha = 0.50f
                 )
             }

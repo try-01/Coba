@@ -9,7 +9,7 @@ import com.tvhanan.domain.model.TvDevice
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 /** Status sebuah aksi koneksi (reconnect/scan) yang ditampilkan sbg modal di SettingsScreen. */
@@ -67,7 +67,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             val ip = preferences.lastIp.firstOrNull()
             val port = preferences.lastPort.firstOrNull()?.toIntOrNull() ?: 8001
-            val mac = preferences.macAddress.firstOrNull()
+            val mac: String? = preferences.macAddress.firstOrNull()
             if (ip != null) {
                 _tvDevice.value = TvDevice(ipAddress = ip, port = port, macAddress = mac)
             }
