@@ -9,7 +9,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.sync.Semaphore
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.Inet4Address
@@ -63,7 +62,10 @@ class TvDiscoveryService(private val context: Context) {
             val json = org.json.JSONObject(body)
             val device = json.optJSONObject("device") ?: return@withContext null
             val name = device.optString("name", "Samsung TV").removePrefix("[TV] ")
-            val mac = device.optString("wifiMac", "").ifBlank { null }
+            val mac = device.optString("wifiMac", "")
+                .ifBlank { device.optString("mac", "") }
+                .ifBlank { device.optString("deviceMac", "") }
+                .ifBlank { null }
 
             name to mac
         } catch (e: Exception) {
@@ -129,7 +131,7 @@ class TvDiscoveryService(private val context: Context) {
         }
     }
 }
-results // CUKUP TULIS NAMA VARIABELNYA SAJA TANPA "return"
+results
             } finally {
                 releaseMulticastLock(multicastLock)
             }
@@ -137,30 +139,28 @@ results // CUKUP TULIS NAMA VARIABELNYA SAJA TANPA "return"
     }
 
     private suspend fun scanSubnet(prefix: String): List<TvDevice> = coroutineScope {
-        val semaphore = Semaphore(20)
-        val tasks = (1..254).map { octet ->
-            async<TvDevice?> { semaphore.withPermit { scanSingleIp("$prefix.$octet") } }
-        }
-        tasks.awaitAll().filterNotNull()
-    }
-
-    private suspend fun scanSingleIp(ip: String): TvDevice? {
-        val openPort = when {
-            isPortOpen(ip, 8002) -> 8002
-            isPortOpen(ip, 8001) -> 8001
-            else -> null
-        }
-        return if (openPort != null) {
-            val info = fetchDeviceInfo(ip)
-            TvDevice(
-                ipAddress = ip,
-                name = info?.first ?: "Samsung TV",
-                macAddress = info?.second,
-                port = openPort
-            )
-        } else {
-            null
-        }
+        (1..254).map { octet ->
+            async {
+                val ip = "$prefix.$octet"
+                // Memprioritaskan port 8002 (Secure) dibanding port 8001 (Legacy) saat scanning subnet
+                val openPort = when {
+                    isPortOpen(ip, 8002) -> 8002
+                    isPortOpen(ip, 8001) -> 8001
+                    else -> null
+                }
+                if (openPort != null) {
+                    val info = fetchDeviceInfo(ip)
+                    TvDevice(
+                        ipAddress = ip,
+                        name = info?.first ?: "Samsung TV",
+                        macAddress = info?.second,
+                        port = openPort
+                    )
+                } else {
+                    null
+                }
+            }
+        }.awaitAll().filterNotNull()
     }
 
     private fun isPortOpen(ip: String, port: Int): Boolean {

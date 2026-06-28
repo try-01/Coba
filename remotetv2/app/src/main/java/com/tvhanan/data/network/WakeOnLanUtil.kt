@@ -44,20 +44,20 @@ object WakeOnLanUtil {
     suspend fun sendWakeOnLanWithRetry(
         macAddress: String,
         broadcastIp: String = "255.255.255.255",
-        bursts: Int = 3,
-        packetsPerBurst: Int = 3,
-        burstIntervalMillis: Long = 2000
+        attempts: Int = 5,
+        intervalMillis: Long = 2000
     ): Boolean = withContext(Dispatchers.IO) {
-        repeat(bursts) { burst ->
-            repeat(packetsPerBurst) {
-                sendWakeOnLan(macAddress, broadcastIp)
+        repeat(attempts) { attempt ->
+            if (sendWakeOnLan(macAddress, broadcastIp)) {
+                Log.d(TAG, "WoL attempt ${attempt + 1}/$attempts succeeded")
+                return@withContext true
             }
-            Log.d(TAG, "Burst ${burst + 1}/$bursts sent ($packetsPerBurst packets)")
-            if (burst < bursts - 1) {
-                kotlinx.coroutines.delay(burstIntervalMillis)
+            Log.w(TAG, "WoL attempt ${attempt + 1}/$attempts failed, retrying...")
+            if (attempt < attempts - 1) {
+                kotlinx.coroutines.delay(intervalMillis)
             }
         }
-        true
+        false
     }
 
     private fun parseMacAddress(mac: String): ByteArray {

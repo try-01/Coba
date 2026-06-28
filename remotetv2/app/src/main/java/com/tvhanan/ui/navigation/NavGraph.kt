@@ -57,10 +57,10 @@ fun TvRemoteNavGraph(
     )
 
     val startRoute by androidx.compose.runtime.produceState<String?>(initialValue = null) {
-        val savedIp = serviceLocator.preferences.lastIp.firstOrNull()
+        val savedIp = serviceLocator.preferences.lastIp.first()
         value = if (savedIp != null) {
             // Ubah fallback port bawaan ke 8002 agar selaras dengan prioritas WSS
-            val savedPort = serviceLocator.preferences.lastPort.firstOrNull()?.toIntOrNull() ?: 8002
+            val savedPort = serviceLocator.preferences.lastPort.first()?.toIntOrNull() ?: 8002
             Routes.remoteRoute(savedIp, savedPort)
         } else {
             Routes.SCAN
@@ -133,9 +133,8 @@ fun TvRemoteNavGraph(
 
             val connectionStateForSync by viewModel.connectionState.collectAsStateWithLifecycle()
 
-            // Sinkronisasi awal: ip, digabung dengan sinkronisasi token - single LaunchedEffect
-            androidx.compose.runtime.LaunchedEffect(ip, port, connectionStateForSync) {
-                val mac = serviceLocator.preferences.macAddress.firstOrNull()
+            androidx.compose.runtime.LaunchedEffect(ip, port) {
+                val mac = serviceLocator.preferences.macAddress.first()
                 val token = serviceLocator.preferences.getToken()
                 settingsViewModel.setActiveDevice(
                     ipAddress = ip,
@@ -144,14 +143,21 @@ fun TvRemoteNavGraph(
                     token = token,
                     isConnected = connectionStateForSync == com.tvhanan.domain.model.ConnectionState.CONNECTED
                 )
-                
-                // Observe new token changes
+            }
+
+            androidx.compose.runtime.LaunchedEffect(connectionStateForSync) {
+                settingsViewModel.updateConnectionStatus(
+                    connectionStateForSync == com.tvhanan.domain.model.ConnectionState.CONNECTED
+                )
+            }
+
+            androidx.compose.runtime.LaunchedEffect(ip, port) {
                 viewModel.observeNewToken { newToken ->
-                    val currentMac = serviceLocator.preferences.macAddress.firstOrNull()
+                    val mac = serviceLocator.preferences.macAddress.first()
                     settingsViewModel.setActiveDevice(
                         ipAddress = ip,
                         port = port,
-                        macAddress = currentMac,
+                        macAddress = mac,
                         token = newToken,
                         isConnected = true
                     )
@@ -159,20 +165,18 @@ fun TvRemoteNavGraph(
             }
 
             val uiPrefs by settingsViewModel.uiPreferences.collectAsStateWithLifecycle()
-            val deviceName = settingsViewModel.tvDevice.collectAsStateWithLifecycle().value?.name ?: "Samsung TV"
 
             RemoteScreen(
                 viewModel = viewModel,
                 onOpenSettings = {
                     navController.navigate(Routes.SETTINGS) {
-                        launchSingleTop = true
+                        launchSingleTop = true // Mencegah penumpukan layar ganda pada double-tap cepat
                     }
                 },
                 scaleFactor = uiPrefs.remoteSize.scaleFactor,
                 keepScreenOn = uiPrefs.keepScreenOn,
-                hapticEnabled = uiPrefs.hapticEnabled,
-                meshBackgroundEnabled = uiPrefs.meshBackgroundEnabled,
-                deviceName = deviceName
+                hapticEnabled = uiPrefs.hapticEnabled,                 // Salurkan status getar
+                meshBackgroundEnabled = uiPrefs.meshBackgroundEnabled   // Salurkan status latar belakang aurora
             )
         }
 

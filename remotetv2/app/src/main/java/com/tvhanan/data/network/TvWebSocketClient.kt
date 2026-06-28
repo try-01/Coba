@@ -15,15 +15,13 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import org.json.JSONObject
 import java.security.SecureRandom
-import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.SSLContext
-import javax.net.ssl.SSLSession
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import kotlin.coroutines.resume
-import kotlin.LazyThreadSafetyMode
 
 class TvWebSocketClient {
 
@@ -31,18 +29,36 @@ class TvWebSocketClient {
         private const val TAG = "TvHanan"
     }
 
-    private val sslClient by lazy(LazyThreadSafetyMode.PUBLICATION) {
+    private val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
+        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
+        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+    })
+
+    /** Hanya izinkan koneksi ke IP private/lokal untuk membatasi surface MITM */
+    private val localHostnameVerifier = HostnameVerifier { hostname, _ ->
+        hostname.startsWith("192.168.") || hostname.startsWith("10.") ||
+        hostname.startsWith("172.16.") || hostname.startsWith("172.17.") ||
+        hostname.startsWith("172.18.") || hostname.startsWith("172.19.") ||
+        hostname.startsWith("172.20.") || hostname.startsWith("172.21.") ||
+        hostname.startsWith("172.22.") || hostname.startsWith("172.23.") ||
+        hostname.startsWith("172.24.") || hostname.startsWith("172.25.") ||
+        hostname.startsWith("172.26.") || hostname.startsWith("172.27.") ||
+        hostname.startsWith("172.28.") || hostname.startsWith("172.29.") ||
+        hostname.startsWith("172.30.") || hostname.startsWith("172.31.") ||
+        hostname == "localhost" || hostname == "127.0.0.1"
+    }
+
+    private val sslClient by lazy {
         try {
             val sslCtx = SSLContext.getInstance("TLS")
-            sslCtx.init(null, arrayOf(TrustAllManager), SecureRandom())
+            sslCtx.init(null, trustAllCerts, SecureRandom())
             OkHttpClient.Builder()
                 .pingInterval(15, TimeUnit.SECONDS)
                 .readTimeout(0, TimeUnit.MILLISECONDS)
                 .connectTimeout(8, TimeUnit.SECONDS)
-                .sslSocketFactory(sslCtx.socketFactory, TrustAllManager)
-                .hostnameVerifier { hostname, session ->
-                    verifyHostname(hostname, session)
-                }
+                .sslSocketFactory(sslCtx.socketFactory, trustAllCerts[0] as X509TrustManager)
+                .hostnameVerifier(localHostnameVerifier)
                 .build()
         } catch (e: Exception) {
             Log.e(TAG, "SSL client init error: ${e.message}")
@@ -52,39 +68,15 @@ class TvWebSocketClient {
 
     private val plainClient by lazy {
         OkHttpClient.Builder()
-            .pingInterval(15, TimeUnit.SECONDS)
+            .pingInterval(15, TimeUnit.SECONDS) // Mencegah TV memutus koneksi
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .connectTimeout(8, TimeUnit.SECONDS)
             .build()
     }
 
-    private object TrustAllManager : X509TrustManager {
-        override fun checkClientTrusted(chain: Array<X509Certificate>?, authType: String?) {
-        }
-
-        override fun checkServerTrusted(chain: Array<X509Certificate>?, authType: String?) {
-            if (chain == null || chain.isEmpty()) {
-                throw CertificateException("Empty certificate chain")
-            }
-            try {
-                chain[0].checkValidity()
-            } catch (e: Exception) {
-                throw CertificateException("Certificate not valid: ${e.message}")
-            }
-            Log.w(TAG, "Accepting self-signed certificate for TV: ${chain[0].subjectDN}")
-        }
-
-        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
-    }
-
-    private fun verifyHostname(hostname: String?, session: SSLSession?): Boolean {
-        if (hostname == null || session == null) return false
-        val peerHost = session.peerHost
-        return hostname == peerHost || hostname == session.peerPrincipal.name
-    }
-
     private var webSocket: WebSocket? = null
     private var currentToken: String? = null
+    private var connectionGen = 0L
 
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
@@ -97,7 +89,8 @@ class TvWebSocketClient {
     }
 
     suspend fun connect(ip: String, port: Int, token: String? = null): Result<WebSocket> {
-        disconnect() // Tutup koneksi lama (jika ada) secara paksa
+        disconnect()
+        val gen = ++connectionGen
 
         return suspendCancellableCoroutine { continuation ->
             currentToken = token
@@ -114,6 +107,7 @@ class TvWebSocketClient {
             try {
                 val ws = client.newWebSocket(request, object : WebSocketListener() {
                     override fun onOpen(ws: WebSocket, response: Response) {
+                        if (connectionGen != gen) return
                         Log.d(TAG, "Connected to $ip:$port")
                         _connectionState.value = ConnectionState.CONNECTED
                         if (continuation.isActive) {
@@ -126,21 +120,18 @@ class TvWebSocketClient {
                     }
 
                     override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+                        if (connectionGen != gen) return
                         val detail = t.message ?: t.javaClass.simpleName
                         Log.e(TAG, "Failed $ip:$port: $detail")
                         if (response != null) Log.e(TAG, "HTTP ${response.code}")
-                        
-                        // Validasi agar sisa koneksi gagal tidak menimpa status yang sukses
-                        if (webSocket == ws || webSocket == null) {
-                            _connectionState.value = ConnectionState.ERROR
-                        }
-                        
+                        _connectionState.value = ConnectionState.ERROR
                         if (continuation.isActive) {
                             continuation.resume(Result.failure(t))
                         }
                     }
 
                     override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+                        if (connectionGen != gen) return
                         Log.d(TAG, "Closed: $code $reason")
                         if (webSocket == ws) {
                             _connectionState.value = ConnectionState.DISCONNECTED
@@ -153,12 +144,15 @@ class TvWebSocketClient {
 
                 continuation.invokeOnCancellation {
                     ws.close(1001, "Cancelled")
-                    if (webSocket == ws) {
-                        _connectionState.value = ConnectionState.DISCONNECTED
-                        webSocket = null
+                    if (connectionGen == gen) {
+                        if (webSocket == ws) {
+                            _connectionState.value = ConnectionState.DISCONNECTED
+                            webSocket = null
+                        }
                     }
                 }
             } catch (e: Exception) {
+                if (connectionGen != gen) return@suspendCancellableCoroutine
                 Log.e(TAG, "WS error: ${e.message}")
                 _connectionState.value = ConnectionState.ERROR
                 if (continuation.isActive) {
@@ -220,8 +214,6 @@ class TvWebSocketClient {
                 _tokenReceived.value = newToken
                 Log.d(TAG, "New Token saved: $newToken")
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse message: ${e.message}", e)
-        }
+        } catch (_: Exception) {}
     }
 }

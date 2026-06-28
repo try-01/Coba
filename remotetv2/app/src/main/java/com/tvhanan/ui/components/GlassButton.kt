@@ -130,46 +130,40 @@ fun Modifier.repeatingClickable(
     onClick: () -> Unit
 ): Modifier = this.pointerInput(interactionSource, enabled) {
     if (!enabled) return@pointerInput
-    val job = kotlinx.coroutines.Job()
-    val scope = kotlinx.coroutines.CoroutineScope(job)
-    awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false)
-        val press = PressInteraction.Press(down.position)
-        
-        // Emulasikan sentuhan ke interaction source agar tombol mengecil secara visual
-        scope.launch {
-            interactionSource.emit(press)
-        }
-        
-        // Luncurkan perulangan klik di coroutine terpisah
-        val repeatJob = scope.launch {
-            onClick()
-            delay(300)
-            while (true) {
-                onClick()
-                delay(100)
+    coroutineScope {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            val press = PressInteraction.Press(down.position)
+            
+            // Emulasikan sentuhan ke interaction source agar tombol mengecil secara visual
+            launch {
+                interactionSource.emit(press)
+            }
+            
+           // Luncurkan perulangan klik di coroutine terpisah (Tuned to Physical Remote Standards)
+            val repeatJob = launch {
+                onClick()  // Klik pertama langsung ditembak instan tanpa jeda (0ms)
+                delay(300) // Jeda penahanan awal (300ms) sebelum mulai mengulang secara otomatis
+                while (true) {
+                    onClick()
+                    delay(100) // Mengirim klik setiap 100ms (10 klik per detik - Respons instan & aman)
+                }
+            }
+            
+            // Tunggu hingga jari diangkat atau ditarik keluar bounds
+            val up = waitForUpOrCancellation()
+            
+            // Batalkan loop pengulangan klik seketika
+            repeatJob.cancel()
+            
+            // Lepaskan status visual tombol kembali normal
+            launch {
+                if (up != null) {
+                    interactionSource.emit(PressInteraction.Release(press))
+                } else {
+                    interactionSource.emit(PressInteraction.Cancel(press))
+                }
             }
         }
-        
-        // Tunggu hingga jari diangkat atau ditarik keluar bounds
-        val up = waitForUpOrCancellation()
-        
-        // Batalkan loop pengulangan klik seketika
-        repeatJob.cancel()
-        
-        // Lepaskan status visual tombol kembali normal
-        scope.launch {
-            if (up != null) {
-                interactionSource.emit(PressInteraction.Release(press))
-            } else {
-                interactionSource.emit(PressInteraction.Cancel(press))
-            }
-        }
-    }
-    // Cleanup when pointer input is disposed
-    try {
-        // Keep the scope alive while gestures are processed
-    } finally {
-        job.cancel()
     }
 }

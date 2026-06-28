@@ -9,7 +9,7 @@ import com.tvhanan.domain.model.TvDevice
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /** Status sebuah aksi koneksi (reconnect/scan) yang ditampilkan sbg modal di SettingsScreen. */
@@ -22,7 +22,14 @@ sealed interface ConnectionActionState {
 }
 
 /**
- * Preferensi tampilan remote.
+ * Preferensi tampilan remote. Catatan implementasi: `remoteSize` saat ini
+ * disimpan di state SettingsViewModel tapi BELUM dikonsumsi oleh
+ * RemoteScreen — untuk efek visual sungguhan (tombol membesar/mengecil),
+ * RemoteScreen perlu membaca preferensi ini (mis. lewat ServiceLocator
+ * yang menyediakan SettingsViewModel sbg singleton, atau lewat
+ * SavedStateHandle/DataStore bersama) dan mengalikan ukuran dp tombol
+ * dengan faktor skala sesuai RemoteSize. Ditandai jelas di sini supaya
+ * tidak disangka sudah berfungsi penuh.
  */
 data class RemoteUiPreferences(
     val hapticEnabled: Boolean = true,
@@ -60,29 +67,16 @@ class SettingsViewModel(
 
     init {
         loadCurrentDevice()
-        loadRemoteSize()
     }
 
     private fun loadCurrentDevice() {
         viewModelScope.launch {
-            val ip = preferences.lastIp.firstOrNull()
-            val port = preferences.lastPort.firstOrNull()?.toIntOrNull() ?: 8001
-            val mac: String? = preferences.macAddress.firstOrNull()
+            val ip = preferences.lastIp.first()
+            val port = preferences.lastPort.first()?.toIntOrNull() ?: 8001
+            val mac = preferences.macAddress.first()
             if (ip != null) {
                 _tvDevice.value = TvDevice(ipAddress = ip, port = port, macAddress = mac)
             }
-        }
-    }
-
-    private fun loadRemoteSize() {
-        viewModelScope.launch {
-            val sizeInt = preferences.remoteSize.firstOrNull() ?: 1
-            val size = when (sizeInt) {
-                0 -> RemoteSize.COMPACT
-                2 -> RemoteSize.LARGE
-                else -> RemoteSize.FIT
-            }
-            _uiPreferences.value = _uiPreferences.value.copy(remoteSize = size)
         }
     }
 
@@ -90,6 +84,10 @@ class SettingsViewModel(
      * TvInfoCard di Settings langsung akurat tanpa menunggu DataStore. */
     fun setActiveDevice(ipAddress: String, port: Int, macAddress: String?, token: String? = null, isConnected: Boolean = false) {
         _tvDevice.value = TvDevice(ipAddress = ipAddress, port = port, macAddress = macAddress, token = token)
+        _isActuallyConnected.value = isConnected
+    }
+
+    fun updateConnectionStatus(isConnected: Boolean) {
         _isActuallyConnected.value = isConnected
     }
 
@@ -107,7 +105,6 @@ class SettingsViewModel(
 
     fun setRemoteSize(size: RemoteSize) {
         _uiPreferences.value = _uiPreferences.value.copy(remoteSize = size)
-        preferences.saveRemoteSize(size.ordinal)
     }
 
     fun reconnect() {

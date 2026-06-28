@@ -4,28 +4,28 @@ import android.content.Context
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.util.Log
 
 object HapticUtil {
 
-    private const val TAG = "HapticUtil"
-    var isEnabled: Boolean = true
+    private var vibrator: Vibrator? = null
+    var isEnabled: Boolean = true // Flag kontrol dinamis dari Settings
 
-    fun tick(context: Context) {
-        if (!isEnabled) return
+    fun init(context: Context) {
+        @Suppress("DEPRECATION")
+        vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    }
 
-        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator ?: return
+    fun tick() {
+        val v = vibrator ?: return
+        if (!isEnabled) return // Jangan bergetar jika dimatikan di menu pengaturan
 
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val effect = VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
-                vibrator.vibrate(effect)
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(25)
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Vibration failed: ${e.message}")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // EFFECT_CLICK memberikan respons ketukan fisik yang jauh lebih mantap & instan dibanding TICK
+            val effect = VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
+            v.vibrate(effect)
+        } else {
+            @Suppress("DEPRECATION")
+            v.vibrate(25) // Getaran singkat yang pas untuk Android versi lama
         }
     }
 }

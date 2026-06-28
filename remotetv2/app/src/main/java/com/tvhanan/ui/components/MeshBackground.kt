@@ -3,7 +3,6 @@ package com.tvhanan.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -29,71 +28,45 @@ import com.tvhanan.ui.theme.MeshBlob4
  *
  * Dipasang sebagai layer paling belakang (di belakang konten scroll),
  * mengisi seluruh layar via Modifier.fillMaxSize() dari pemanggil.
- * 
- * Menggunakan remember untuk caching komposisi draw, menghindari
- * redraw berulang saat recomposition komponen lain.
  */
 @Composable
 fun MeshGradientBackground(modifier: Modifier = Modifier) {
-    val cachedDraw = remember { MeshDrawCache() }
-    
-    Canvas(
-        modifier = modifier.background(BgBase)
-    ) {
-        cachedDraw.drawMesh(this)
+    Canvas(modifier = modifier.background(BgBase)) {
+        drawMeshBlob(
+            color = MeshBlob1,
+            center = Offset(size.width * 0.08f, size.height * 0.05f),
+            radius = size.width * 0.62f,
+            alpha = 0.65f
+        )
+        drawMeshBlob(
+            color = MeshBlob2,
+            center = Offset(size.width * 0.96f, size.height * 0.24f),
+            radius = size.width * 0.58f,
+            alpha = 0.55f
+        )
+        drawMeshBlob(
+            color = MeshBlob3,
+            center = Offset(size.width * 0.10f, size.height * 0.56f),
+            radius = size.width * 0.62f,
+            alpha = 0.48f
+        )
+        drawMeshBlob(
+            color = MeshBlob4,
+            center = Offset(size.width * 0.92f, size.height * 0.74f),
+            radius = size.width * 0.58f,
+            alpha = 0.50f
+        )
     }
 }
 
-private class MeshDrawCache {
-    private var lastWidth: Int = -1
-    private var lastHeight: Int = -1
-    private var cachedCommands: (DrawScope.() -> Unit)? = null
-    
-    fun drawMesh(drawScope: DrawScope) {
-        val currentWidth = drawScope.size.width.toInt()
-        val currentHeight = drawScope.size.height.toInt()
-        if (lastWidth != currentWidth || lastHeight != currentHeight || cachedCommands == null) {
-            lastWidth = currentWidth
-            lastHeight = currentHeight
-            cachedCommands = {
-                drawMeshBlob(
-                    color = MeshBlob1,
-                    center = Offset(currentWidth * 0.08f, currentHeight * 0.05f),
-                    radius = currentWidth * 0.62f,
-                    alpha = 0.65f
-                )
-                drawMeshBlob(
-                    color = MeshBlob2,
-                    center = Offset(currentWidth * 0.96f, currentHeight * 0.24f),
-                    radius = currentWidth * 0.58f,
-                    alpha = 0.55f
-                )
-                drawMeshBlob(
-                    color = MeshBlob3,
-                    center = Offset(currentWidth * 0.10f, currentHeight * 0.56f),
-                    radius = currentWidth * 0.62f,
-                    alpha = 0.48f
-                )
-                drawMeshBlob(
-                    color = MeshBlob4,
-                    center = Offset(currentWidth * 0.92f, currentHeight * 0.74f),
-                    radius = currentWidth * 0.58f,
-                    alpha = 0.50f
-                )
-            }
-        }
-        cachedCommands?.invoke(drawScope)
-    }
-    
-    private fun DrawScope.drawMeshBlob(color: Color, center: Offset, radius: Float, alpha: Float) {
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(color.copy(alpha = alpha), color.copy(alpha = 0f)),
-                center = center,
-                radius = radius
-            ),
-            radius = radius,
-            center = center
-        )
-    }
+private fun DrawScope.drawMeshBlob(color: Color, center: Offset, radius: Float, alpha: Float) {
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(color.copy(alpha = alpha), color.copy(alpha = 0f)),
+            center = center,
+            radius = radius
+        ),
+        radius = radius,
+        center = center
+    )
 }

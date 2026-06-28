@@ -71,13 +71,14 @@ fun RemoteScreen(
     scaleFactor: Float = 1f,
     keepScreenOn: Boolean = true,
     hapticEnabled: Boolean = true,
-    meshBackgroundEnabled: Boolean = true,
-    deviceName: String = "Samsung TV"
+    meshBackgroundEnabled: Boolean = true
 ) {
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val isMacAvailable by viewModel.isMacAvailable.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    val dpDpadSize = remember(scaleFactor) { (216 * scaleFactor).dp }
 
     // SINKRONISASI GETAR: Hubungkan setelan dinamis haptic ke utility getar
     LaunchedEffect(hapticEnabled) {
@@ -125,8 +126,7 @@ fun RemoteScreen(
                 RemoteHeaderBar(
                     connectionState = connectionState,
                     isMacAvailable = isMacAvailable,
-                    onSettingsClick = onOpenSettings,
-                    deviceName = deviceName
+                    onSettingsClick = onOpenSettings
                 )
             }
 
@@ -158,7 +158,7 @@ fun RemoteScreen(
                             onLeft = { viewModel.sendKey(RemoteKey.DPAD_LEFT) },
                             onRight = { viewModel.sendKey(RemoteKey.DPAD_RIGHT) },
                             onOk = { viewModel.sendKey(RemoteKey.ENTER) },
-                            size = (216 * scaleFactor).dp
+                            size = dpDpadSize
                         )
                     }
                     BackHomeExitRow(viewModel, scaleFactor)
@@ -218,10 +218,9 @@ fun RemoteScreen(
 
 @Composable
 private fun RemoteHeaderBar(
-    connectionState: ConnectionState,
+    connectionState: ConnectionState, 
     isMacAvailable: Boolean,
-    onSettingsClick: () -> Unit,
-    deviceName: String
+    onSettingsClick: () -> Unit
 ) {
     val (label, color) = when {
         connectionState == ConnectionState.CONNECTED -> "Connected" to ConnectedColor
@@ -246,7 +245,7 @@ private fun RemoteHeaderBar(
         Spacer(modifier = Modifier.weight(1f))
 
         Text(
-            text = deviceName,
+            text = "SAMSUNG · N4300",
             color = TextPrimary,
             style = MaterialTheme.typography.labelMedium,
             maxLines = 1
@@ -377,9 +376,10 @@ private fun BackHomeExitRow(viewModel: RemoteViewModel, scaleFactor: Float) {
 }
 
 private data class PillCell(
-    val label: String, 
-    val isSymbol: Boolean, 
-    val autoRepeat: Boolean = false, // Default bernilai false
+    val label: String,
+    val isSymbol: Boolean,
+    val autoRepeat: Boolean = false,
+    val enabled: Boolean = true,
     val onClick: () -> Unit
 )
 
@@ -390,7 +390,7 @@ private fun VolumeChannelSection(viewModel: RemoteViewModel, scaleFactor: Float)
             scaleFactor = scaleFactor,
             cells = listOf(
                 PillCell("−", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.VOL_DOWN) },
-                PillCell("🔊", isSymbol = true) { },
+                PillCell("🔊", isSymbol = true, autoRepeat = false, enabled = false) { },
                 PillCell("+", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.VOL_UP) },
                 PillCell("🔇", isSymbol = true) { viewModel.sendKey(RemoteKey.MUTE) }
             )
@@ -399,7 +399,7 @@ private fun VolumeChannelSection(viewModel: RemoteViewModel, scaleFactor: Float)
             scaleFactor = scaleFactor,
             cells = listOf(
                 PillCell("−", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.CH_DOWN) },
-                PillCell("📺", isSymbol = true) { },
+                PillCell("📺", isSymbol = true, autoRepeat = false, enabled = false) { },
                 PillCell("+", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.CH_UP) },
                 PillCell("☰", isSymbol = true) { viewModel.sendKey(RemoteKey.CH_LIST) }
             )
@@ -433,7 +433,8 @@ private fun PillRow(cells: List<PillCell>, scaleFactor: Float) {
                 onClick = cell.onClick,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 shape = shape,
-                autoRepeat = cell.autoRepeat, // SALURKAN AUTO-REPEAT DI SINI
+                autoRepeat = cell.autoRepeat,
+                enabled = cell.enabled,
                 borderColor = Color.Transparent
             ) {
                 Text(
@@ -596,7 +597,6 @@ private fun AppShortcutButton(
     onClose: () -> Unit
 ) {
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val context = LocalContext.current
     Box(
         modifier = modifier
             .height(height)
@@ -609,11 +609,11 @@ private fun AppShortcutButton(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = {
-                    HapticUtil.tick(context)
+                    HapticUtil.tick()
                     onLaunch()
                 },
                 onLongClick = {
-                    HapticUtil.tick(context)
+                    HapticUtil.tick()
                     onClose()
                 }
             ),

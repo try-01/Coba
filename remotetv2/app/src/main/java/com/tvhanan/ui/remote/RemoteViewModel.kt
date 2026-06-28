@@ -8,12 +8,13 @@ import com.tvhanan.data.network.TvWebSocketClient
 import com.tvhanan.data.network.WakeOnLanUtil
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import com.tvhanan.data.network.AppLauncher
 
@@ -24,8 +25,9 @@ class RemoteViewModel(
     private val webSocketClient: TvWebSocketClient = TvWebSocketClient(),
     private val preferences: TvPreferences? = null
 ) : ViewModel() {
-    
-    private var tokenObserverJob: kotlinx.coroutines.Job? = null
+
+    private var tokenObserverJob: Job? = null
+    private var autoReconnectJob: Job? = null
 
     companion object {
         private const val TAG = "TvHanan"
@@ -36,21 +38,22 @@ class RemoteViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _lastSavedToken = MutableStateFlow<String?>(null)
+
     private val _isMacAvailable = MutableStateFlow(false)
     val isMacAvailable: StateFlow<Boolean> = _isMacAvailable.asStateFlow()
 
     init {
         viewModelScope.launch {
-            val mac = macAddress ?: preferences?.macAddress?.firstOrNull()
+            val mac = macAddress ?: preferences?.macAddress?.first()
             _isMacAvailable.value = !mac.isNullOrBlank()
         }
     }
-    
+
     fun connect() {
         Log.d(TAG, "connect() called for $ipAddress")
         _errorMessage.value = null
         viewModelScope.launch {
-            // getToken() is now synchronous
             val savedToken = preferences?.getToken()
             Log.d(TAG, "savedToken = ${if (savedToken == null) "null" else "exists"}")
 
@@ -65,8 +68,11 @@ class RemoteViewModel(
                             .filterNotNull()
                             .first()
                         preferences?.saveToken(newToken)
+                        _lastSavedToken.value = newToken
                         Log.d(TAG, "First token saved: $newToken")
                     }
+                } else {
+                    _lastSavedToken.value = savedToken
                 }
             } else {
                 val errorMsg = result.exceptionOrNull()?.message ?: "Gagal terhubung ke TV"
@@ -76,16 +82,10 @@ class RemoteViewModel(
         }
     }
 
-    /**
-     * Memantau token yang baru tersimpan dari pairing.
-     * Dipakai NavGraph untuk sinkronisasi token ke SettingsViewModel.
-     */
     suspend fun observeNewToken(onNewToken: suspend (String) -> Unit) {
-        webSocketClient.tokenReceived
-            .filterNotNull()
-            .collect { token ->
-                onNewToken(token)
-            }
+        _lastSavedToken.filterNotNull().collect { token ->
+            onNewToken(token)
+        }
     }
 
     fun sendKey(key: RemoteKey) {
@@ -98,21 +98,22 @@ class RemoteViewModel(
 
     fun wakeOnLan() {
         viewModelScope.launch {
-            val mac = macAddress ?: preferences?.macAddress?.firstOrNull()
+            val mac = macAddress ?: preferences?.macAddress?.first()
             if (!mac.isNullOrBlank()) {
                 Log.d(TAG, "Mencoba menyalakan TV via WoL (dengan Retry) ke MAC: $mac")
-                
+
                 val success = WakeOnLanUtil.sendWakeOnLanWithRetry(mac)
-                
+
                 if (success) {
-                    launch {
-                        kotlinx.coroutines.delay(4000)
-                        
+                    autoReconnectJob?.cancel()
+                    autoReconnectJob = launch {
+                        _errorMessage.value = "TV sedang dinyalakan, mencoba menghubungkan kembali..."
+                        delay(4000)
                         repeat(4) { attempt ->
                             if (connectionState.value != ConnectionState.CONNECTED) {
                                 Log.d(TAG, "Auto-reconnect setelah WOL, percobaan ke-${attempt + 1}")
                                 connect()
-                                kotlinx.coroutines.delay(4000)
+                                delay(4000)
                             }
                         }
                     }
@@ -138,12 +139,15 @@ class RemoteViewModel(
     }
 
     fun disconnect() {
+        tokenObserverJob?.cancel()
+        tokenObserverJob = null
+        autoReconnectJob?.cancel()
+        autoReconnectJob = null
         webSocketClient.disconnect()
     }
 
     override fun onCleared() {
-        super.onCleared()
-        tokenObserverJob?.cancel()
         disconnect()
+        super.onCleared()
     }
 }

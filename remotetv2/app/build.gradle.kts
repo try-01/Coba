@@ -53,10 +53,10 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.okhttp)
     implementation(libs.datastore)
+    implementation(libs.security.crypto)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
     implementation(libs.core.ktx)
-    implementation(libs.security.crypto)
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.tooling.preview)

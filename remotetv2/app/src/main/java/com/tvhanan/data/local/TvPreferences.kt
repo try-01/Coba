@@ -1,70 +1,54 @@
 package com.tvhanan.data.local
 
+import androidx.datastore.preferences.core.emptyPreferences
+import kotlinx.coroutines.flow.catch
+import java.io.IOException
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.datastore.preferences.core.emptyPreferences
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
+import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import java.io.IOException
-import java.security.GeneralSecurityException
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "tv_settings")
 
-// Helper untuk menangkap error I/O agar app tidak Force Close
-private fun Flow<Preferences>.safeData(): Flow<Preferences> = this.catch { exception ->
-    if (exception is IOException) emit(emptyPreferences()) else throw exception
-}
-
-// Single source of truth for all preferences - eliminates 4x DataStore subscriptions
-private val Context.preferencesFlow: Flow<Preferences> by lazy {
-    dataStore.data.safeData().distinctUntilChanged()
-}
-
 class TvPreferences(private val context: Context) {
 
-    private val encryptedPrefs: SharedPreferences by lazy {
-        try {
-            val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
-            EncryptedSharedPreferences.create(
-                "tv_secure_prefs",
-                masterKeyAlias,
-                context,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-        } catch (e: GeneralSecurityException) {
-            throw RuntimeException("Failed to create encrypted preferences", e)
-        } catch (e: IOException) {
-            throw RuntimeException("Failed to create encrypted preferences", e)
+    private val Flow<Preferences>.safeData: Flow<Preferences>
+        get() = this.catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
         }
+
+    /** EncryptedSharedPreferences khusus untuk token pairing */
+    private val securePrefs: SharedPreferences by lazy {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            "tv_token_secure",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
     }
 
     companion object {
         private val KEY_LAST_IP = stringPreferencesKey("last_ip")
         private val KEY_LAST_PORT = stringPreferencesKey("last_port")
         private val KEY_MAC_ADDRESS = stringPreferencesKey("mac_address")
-        private val KEY_REMOTE_SIZE = intPreferencesKey("remote_size")
-        private const val KEY_TOKEN = "token"
+        private const val KEY_TOKEN_SECURE = "token"
     }
 
-    // All flows from single source - no duplicate DataStore subscriptions
-    val lastIp: Flow<String?> = context.preferencesFlow.map { it[KEY_LAST_IP] }
-    val lastPort: Flow<String?> = context.preferencesFlow.map { it[KEY_LAST_PORT] }
-    val macAddress: Flow<String?> = context.preferencesFlow.map { it[KEY_MAC_ADDRESS] }
-    val remoteSize: Flow<Int> = context.preferencesFlow.map { it[KEY_REMOTE_SIZE] ?: 1 }
-
-    // Token dibaca dari EncryptedSharedPreferences (bukan Flow karena enkripsi synchronous)
-    fun getToken(): String? = encryptedPrefs.getString(KEY_TOKEN, null)
+    val lastIp: Flow<String?> = context.dataStore.data.safeData.map { it[KEY_LAST_IP] }
+    val lastPort: Flow<String?> = context.dataStore.data.safeData.map { it[KEY_LAST_PORT] }
+    val macAddress: Flow<String?> = context.dataStore.data.safeData.map { it[KEY_MAC_ADDRESS] }
 
     suspend fun saveLastIp(ip: String) {
         context.dataStore.edit { it[KEY_LAST_IP] = ip }
@@ -74,21 +58,20 @@ class TvPreferences(private val context: Context) {
         context.dataStore.edit { it[KEY_LAST_PORT] = port }
     }
 
-    // Token disimpan ke EncryptedSharedPreferences
-    fun saveToken(token: String) {
-        encryptedPrefs.edit().putString(KEY_TOKEN, token).apply()
+    suspend fun saveToken(token: String) {
+        securePrefs.edit().putString(KEY_TOKEN_SECURE, token).apply()
     }
 
     suspend fun saveMacAddress(mac: String) {
         context.dataStore.edit { it[KEY_MAC_ADDRESS] = mac }
     }
 
-    fun saveRemoteSize(size: Int) {
-        context.dataStore.edit { it[KEY_REMOTE_SIZE] = size }
+    suspend fun getToken(): String? {
+        return securePrefs.getString(KEY_TOKEN_SECURE, null)
     }
 
     suspend fun clear() {
         context.dataStore.edit { it.clear() }
-        encryptedPrefs.edit().clear().apply()
+        securePrefs.edit().clear().apply()
     }
 }
