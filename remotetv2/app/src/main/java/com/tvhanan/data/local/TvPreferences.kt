@@ -20,7 +20,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 class TvPreferences(private val context: Context) {
 
-    private val cryptoUtil = CryptoUtil(context)
+    private val cryptoUtil = CryptoUtil()
 
     // Helper untuk menangkap error I/O agar app tidak Force Close
     private val Flow<Preferences>.safeData: Flow<Preferences>

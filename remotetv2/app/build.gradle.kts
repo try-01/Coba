@@ -56,7 +56,6 @@ dependencies {
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
     implementation(libs.core.ktx)
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.tooling.preview)
