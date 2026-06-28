@@ -3,26 +3,22 @@ package com.tvhanan.ui.remote
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.tvhanan.data.local.TvPreferences
-import com.tvhanan.data.network.TvWebSocketClient
-import com.tvhanan.data.network.WakeOnLanUtil
 import com.tvhanan.domain.model.ConnectionState
 import com.tvhanan.domain.model.RemoteKey
+import com.tvhanan.domain.repository.TvRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
-import com.tvhanan.data.network.AppLauncher
 import java.util.concurrent.atomic.AtomicBoolean
 
 class RemoteViewModel(
     private val ipAddress: String,
     private val port: Int = 8002,
     private val macAddress: String? = null,
-    private val webSocketClient: TvWebSocketClient = TvWebSocketClient(),
-    private val preferences: TvPreferences? = null
+    private val repository: TvRepository
 ) : ViewModel() {
     
     private var tokenObserverJob: kotlinx.coroutines.Job? = null
@@ -32,7 +28,7 @@ class RemoteViewModel(
         private const val TAG = "TvHanan"
     }
 
-    val connectionState: StateFlow<ConnectionState> = webSocketClient.connectionState
+    val connectionState: StateFlow<ConnectionState> = repository.connectionState
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
@@ -44,7 +40,7 @@ class RemoteViewModel(
 
     init {
         viewModelScope.launch {
-            val mac = macAddress ?: preferences?.macAddress?.firstOrNull()
+            val mac = macAddress ?: repository.macAddress.firstOrNull()
             _isMacAvailable.value = !mac.isNullOrBlank()
         }
     }
@@ -58,21 +54,21 @@ class RemoteViewModel(
         _errorMessage.value = null
         viewModelScope.launch {
             try {
-                val savedToken = preferences?.getToken()
+                val savedToken = repository.getToken()
                 Log.d(TAG, "savedToken = ${if (savedToken == null) "null" else "exists"}")
 
-                val result = webSocketClient.connectWithFallback(ipAddress, savedToken)
+                val result = repository.connectWithFallback(ipAddress, savedToken)
 
                 if (result.isSuccess) {
                     Log.d(TAG, "Connection succeeded")
                     if (savedToken == null) {
                         tokenObserverJob?.cancel()
                         tokenObserverJob = launch {
-                            val newToken = webSocketClient.tokenReceived
+                            val newToken = repository.tokenReceived
                                 .filterNotNull()
                                 .firstOrNull()
                             if (newToken != null) {
-                                preferences?.saveToken(newToken)
+                                repository.saveToken(newToken)
                                 _lastSavedToken.value = newToken
                                 Log.d(TAG, "First token saved: $newToken")
                             }
@@ -112,36 +108,31 @@ class RemoteViewModel(
      * presentasi seperti vibration.
      */
     fun sendKey(key: RemoteKey) {
-        // Jika menekan POWER saat TV mati/terputus, kirim paket Wake-on-LAN untuk menyalakan TV
         if (key == RemoteKey.POWER && connectionState.value != ConnectionState.CONNECTED) {
             wakeOnLan()
         } else {
-            webSocketClient.sendKey(key)
+            repository.sendKey(key)
         }
     }
 
     fun wakeOnLan() {
         viewModelScope.launch {
-            val mac = macAddress ?: preferences?.macAddress?.firstOrNull()
+            val mac = macAddress ?: repository.macAddress.firstOrNull()
             if (!mac.isNullOrBlank()) {
                 Log.d(TAG, "Mencoba menyalakan TV via WoL (dengan Retry) ke MAC: $mac")
                 
-                // 1. Kirim Magic Packet berulang lewat utility retry agar TV pasti terbangun
-                val success = WakeOnLanUtil.sendWakeOnLanWithRetry(mac)
+                val success = repository.wakeOnLan(mac)
                 
                 if (success) {
-                    // 2. OPTIMASI PREMIUM: Auto-Reconnect Loop
-                    // TV Tizen membutuhkan waktu booting ~5-15 detik sebelum server WebSocket internalnya aktif.
-                    // Kita buat aplikasi otomatis mencoba menghubungkan kembali setiap 4 detik sebanyak 4 kali percobaan.
                     launch {
                         _errorMessage.value = "TV sedang dinyalakan, mencoba menghubungkan kembali..."
-                        kotlinx.coroutines.delay(4000) // Beri waktu TV untuk inisialisasi hardware awal
+                        kotlinx.coroutines.delay(4000)
                         
                         repeat(4) { attempt ->
                             if (connectionState.value != ConnectionState.CONNECTED) {
                                 Log.d(TAG, "Auto-reconnect setelah WOL, percobaan ke-${attempt + 1}")
-                                connect() // Panggil fungsi koneksi WebSocket utama
-                                kotlinx.coroutines.delay(4000) // Jeda antar percobaan koneksi
+                                connect()
+                                kotlinx.coroutines.delay(4000)
                             }
                         }
                     }
@@ -154,20 +145,20 @@ class RemoteViewModel(
 
     fun launchApp(appId: String) {
         viewModelScope.launch {
-            val success = AppLauncher.launch(ipAddress, appId) // Jauh lebih bersih
+            val success = repository.launchApp(ipAddress, appId)
             Log.d(TAG, "launchApp($appId) success=$success")
         }
     }
 
     fun closeApp(appId: String) {
         viewModelScope.launch {
-            val success = AppLauncher.close(ipAddress, appId) // Jauh lebih bersih
+            val success = repository.closeApp(ipAddress, appId)
             Log.d(TAG, "closeApp($appId) success=$success")
         }
     }
 
     fun disconnect() {
-        webSocketClient.disconnect()
+        repository.disconnect()
     }
 
     override fun onCleared() {

@@ -23,6 +23,7 @@ import com.tvhanan.ui.scan.ScanViewModel
 import com.tvhanan.ui.settings.SettingsScreen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.tvhanan.domain.model.ConnectionState
 
 object Routes {
     const val SCAN = "scan"
@@ -46,21 +47,19 @@ fun TvRemoteNavGraph(
 ) {
     val scope = rememberCoroutineScope()
     
-    // Buat SettingsViewModel secara resmi diikat pada tingkat NavHost (Singleton Sejati)
     val settingsViewModel: SettingsViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                return SettingsViewModel(serviceLocator.preferences, serviceLocator.discoveryService) as T
+                return SettingsViewModel(serviceLocator.repository) as T
             }
         }
     )
 
     val startRoute by androidx.compose.runtime.produceState<String?>(initialValue = null) {
-        val savedIp = serviceLocator.preferences.lastIp.first()
+        val savedIp = serviceLocator.repository.lastIp.first()
         value = if (savedIp != null) {
-            // Ubah fallback port bawaan ke 8002 agar selaras dengan prioritas WSS
-            val savedPort = serviceLocator.preferences.lastPort.first()?.toIntOrNull() ?: 8002
+            val savedPort = serviceLocator.repository.lastPort.first()?.toIntOrNull() ?: 8002
             Routes.remoteRoute(savedIp, savedPort)
         } else {
             Routes.SCAN
@@ -75,7 +74,7 @@ fun TvRemoteNavGraph(
                 factory = object : ViewModelProvider.Factory {
                     @Suppress("UNCHECKED_CAST")
                     override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return ScanViewModel(serviceLocator.discoveryService, serviceLocator.preferences) as T
+                        return ScanViewModel(serviceLocator.repository) as T
                     }
                 }
             )
@@ -83,8 +82,8 @@ fun TvRemoteNavGraph(
                 viewModel = viewModel,
                 onDeviceSelected = { device ->
                     scope.launch {
-                        serviceLocator.preferences.saveLastIp(device.ipAddress)
-                        serviceLocator.preferences.saveLastPort(device.port.toString())
+                        serviceLocator.repository.saveLastIp(device.ipAddress)
+                        serviceLocator.repository.saveLastPort(device.port.toString())
                     }
                     navController.navigate(Routes.remoteRoute(device))
                 },
@@ -98,9 +97,9 @@ fun TvRemoteNavGraph(
             ManualConnectScreen(
                 onConnect = { device ->
                     scope.launch {
-                        serviceLocator.preferences.saveLastIp(device.ipAddress)
-                        serviceLocator.preferences.saveLastPort(device.port.toString())
-                        device.macAddress?.let { serviceLocator.preferences.saveMacAddress(it) }
+                        serviceLocator.repository.saveLastIp(device.ipAddress)
+                        serviceLocator.repository.saveLastPort(device.port.toString())
+                        device.macAddress?.let { serviceLocator.repository.saveMacAddress(it) }
                     }
                     navController.navigate(Routes.remoteRoute(device)) {
                         popUpTo(Routes.SCAN)
@@ -126,30 +125,28 @@ fun TvRemoteNavGraph(
                 factory = object : ViewModelProvider.Factory {
                     @Suppress("UNCHECKED_CAST")
                     override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return RemoteViewModel(ip, port, null, serviceLocator.webSocketClient, serviceLocator.preferences) as T
+                        return RemoteViewModel(ip, port, null, serviceLocator.repository) as T
                     }
                 }
             )
 
             val connectionStateForSync by viewModel.connectionState.collectAsStateWithLifecycle()
 
-            // Sinkronisasi awal: ip, port, dan status koneksi aktif
             androidx.compose.runtime.LaunchedEffect(ip, port, connectionStateForSync) {
-                val mac = serviceLocator.preferences.macAddress.first()
-                val token = serviceLocator.preferences.getToken()
+                val mac = serviceLocator.repository.macAddress.first()
+                val token = serviceLocator.repository.getToken()
                 settingsViewModel.setActiveDevice(
                     ipAddress = ip,
                     port = port,
                     macAddress = mac,
                     token = token,
-                    isConnected = connectionStateForSync == com.tvhanan.domain.model.ConnectionState.CONNECTED
+                    isConnected = connectionStateForSync == ConnectionState.CONNECTED
                 )
             }
 
-            // Sinkronisasi TAMBAHAN: update ketika pairing token baru masuk
             androidx.compose.runtime.LaunchedEffect(ip, port) {
                 viewModel.observeNewToken { newToken ->
-                    val mac = serviceLocator.preferences.macAddress.first()
+                    val mac = serviceLocator.repository.macAddress.first()
                     settingsViewModel.setActiveDevice(
                         ipAddress = ip,
                         port = port,

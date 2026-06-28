@@ -3,9 +3,8 @@ package com.tvhanan.ui.settings
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.tvhanan.data.local.TvPreferences
-import com.tvhanan.data.network.TvDiscoveryService
 import com.tvhanan.domain.model.TvDevice
+import com.tvhanan.domain.repository.TvRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,8 +39,7 @@ enum class RemoteSize(val scaleFactor: Float) {
 }
 
 class SettingsViewModel(
-    private val preferences: TvPreferences,
-    private val discoveryService: TvDiscoveryService
+    private val repository: TvRepository
 ) : ViewModel() {
 
     companion object {
@@ -66,9 +64,9 @@ class SettingsViewModel(
 
     private fun loadCurrentDevice() {
         viewModelScope.launch {
-            val ip = preferences.lastIp.first()
-            val port = preferences.lastPort.first()?.toIntOrNull() ?: 8002
-            val mac = preferences.macAddress.first()
+            val ip = repository.lastIp.first()
+            val port = repository.lastPort.first()?.toIntOrNull() ?: 8002
+            val mac = repository.macAddress.first()
             if (ip != null) {
                 _tvDevice.value = TvDevice(ipAddress = ip, port = port, macAddress = mac)
             }
@@ -103,11 +101,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             _actionState.value = ConnectionActionState.Loading
             try {
-                // Reconnect WebSocket sesungguhnya dilakukan oleh RemoteViewModel
-                // saat RemoteScreen dibuka kembali. Di sini kita hanya verifikasi
-                // host terjangkau di jaringan, supaya modal Settings bisa memberi
-                // feedback cepat sebelum user kembali ke RemoteScreen.
-                val reachable = discoveryService.isHostReachable(device.ipAddress, device.port)
+                val reachable = repository.isHostReachable(device.ipAddress, device.port)
                 _actionState.value = if (reachable) {
                     ConnectionActionState.ReconnectSuccess(device)
                 } else {
@@ -124,7 +118,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             _actionState.value = ConnectionActionState.Loading
             try {
-                val devices = discoveryService.discoverDevices()
+                val devices = repository.discoverDevices()
                 _actionState.value = ConnectionActionState.ScanResult(devices)
             } catch (e: Exception) {
                 Log.e(TAG, "Scan failed", e)
@@ -135,7 +129,7 @@ class SettingsViewModel(
 
     fun forgetTv() {
         viewModelScope.launch {
-            preferences.clear()
+            repository.clearPreferences()
             _tvDevice.value = null
             _actionState.value = ConnectionActionState.Idle
         }
@@ -145,7 +139,7 @@ class SettingsViewModel(
         val device = _tvDevice.value ?: return
         val mac = device.macAddress ?: return
         viewModelScope.launch {
-            com.tvhanan.data.network.WakeOnLanUtil.sendWakeOnLanWithRetry(mac)
+            repository.wakeOnLan(mac)
         }
     }
 
