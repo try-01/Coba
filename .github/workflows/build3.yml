@@ -1,4 +1,4 @@
-name: Android CI
+name: Android CI 1
 
 on:
   # 1. Pemicu Manual: Tidak akan build otomatis saat edit file.
