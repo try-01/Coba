@@ -8,6 +8,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -42,9 +44,9 @@ class TvDiscoveryService(private val context: Context) {
      * untuk menampilkan nama TV yang sebenarnya di hasil scan, bukan
      * generik "Samsung TV". Dipanggil setelah port terbuka terdeteksi.
      */
-    private suspend fun fetchDeviceInfo(ip: String): Pair<String, String?>? = withContext(Dispatchers.IO) {
+    private suspend fun fetchDeviceInfo(ip: String, port: Int = 8001): Pair<String, String?>? = withContext(Dispatchers.IO) {
         try {
-            val url = java.net.URL("http://$ip:8001/api/v2/")
+            val url = java.net.URL("http://$ip:$port/api/v2/")
             val connection = url.openConnection() as java.net.HttpURLConnection
             connection.connectTimeout = 2000
             connection.readTimeout = 2000
@@ -62,10 +64,7 @@ class TvDiscoveryService(private val context: Context) {
             val json = org.json.JSONObject(body)
             val device = json.optJSONObject("device") ?: return@withContext null
             val name = device.optString("name", "Samsung TV").removePrefix("[TV] ")
-            val mac = device.optString("wifiMac", "")
-                .ifBlank { device.optString("mac", "") }
-                .ifBlank { device.optString("deviceMac", "") }
-                .ifBlank { null }
+            val mac = device.optString("wifiMac", "").ifBlank { null }
 
             name to mac
         } catch (e: Exception) {
@@ -89,49 +88,49 @@ class TvDiscoveryService(private val context: Context) {
 
             try {
                 val results = mutableListOf<TvDevice>()
-                DatagramSocket().use { socket -> 
-    socket.soTimeout = SSDP_TIMEOUT.toInt()
+                DatagramSocket().use { socket ->
+                    socket.soTimeout = SSDP_TIMEOUT.toInt()
 
-                val ssdpRequest = buildString {
-                    append("M-SEARCH * HTTP/1.1\r\n")
-                    append("HOST: $SSDP_ADDR:$SSDP_PORT\r\n")
-                    append("MAN: \"ssdp:discover\"\r\n")
-                    append("ST: urn:samsung.com:device:RemoteControlReceiver:1\r\n")
-                    append("MX: 3\r\n")
-                    append("\r\n")
+                    val ssdpRequest = buildString {
+                        append("M-SEARCH * HTTP/1.1\r\n")
+                        append("HOST: $SSDP_ADDR:$SSDP_PORT\r\n")
+                        append("MAN: \"ssdp:discover\"\r\n")
+                        append("ST: urn:samsung.com:device:RemoteControlReceiver:1\r\n")
+                        append("MX: 3\r\n")
+                        append("\r\n")
+                    }
+
+                    val sendPacket = DatagramPacket(
+                        ssdpRequest.toByteArray(),
+                        ssdpRequest.length,
+                        InetAddress.getByName(SSDP_ADDR),
+                        SSDP_PORT
+                    )
+                    socket.send(sendPacket)
+
+                    val startTime = System.currentTimeMillis()
+                    while (System.currentTimeMillis() - startTime < SSDP_TIMEOUT) {
+                        try {
+                            val buffer = ByteArray(1024)
+                            val packet = DatagramPacket(buffer, buffer.size)
+                            socket.receive(packet)
+
+                            val response = String(packet.data, 0, packet.length)
+                            val ip = parseLocationIp(response)
+                            if (ip != null && !results.any { it.ipAddress == ip }) {
+                                val info = fetchDeviceInfo(ip)
+                                results.add(
+                                    TvDevice(ipAddress = ip, name = info?.first ?: "Samsung TV", macAddress = info?.second)
+                                )
+                            }
+                        } catch (_: SocketTimeoutException) {
+                            break
+                        } catch (_: Exception) {
+                            continue
+                        }
+                    }
                 }
-
-                val sendPacket = DatagramPacket(
-                    ssdpRequest.toByteArray(),
-                    ssdpRequest.length,
-                    InetAddress.getByName(SSDP_ADDR),
-                    SSDP_PORT
-                )
-                socket.send(sendPacket)
-
-                val startTime = System.currentTimeMillis()
-    while (System.currentTimeMillis() - startTime < SSDP_TIMEOUT) {
-        try {
-            val buffer = ByteArray(1024)
-            val packet = DatagramPacket(buffer, buffer.size)
-            socket.receive(packet)
-
-            val response = String(packet.data, 0, packet.length)
-            val ip = parseLocationIp(response)
-            if (ip != null && !results.any { it.ipAddress == ip }) {
-                val info = fetchDeviceInfo(ip)
-                results.add(
-                    TvDevice(ipAddress = ip, name = info?.first ?: "Samsung TV", macAddress = info?.second)
-                )
-            }
-        } catch (_: SocketTimeoutException) {
-            break
-        } catch (_: Exception) {
-            continue
-        }
-    }
-}
-results
+                results
             } finally {
                 releaseMulticastLock(multicastLock)
             }
@@ -139,25 +138,27 @@ results
     }
 
     private suspend fun scanSubnet(prefix: String): List<TvDevice> = coroutineScope {
+        val semaphore = Semaphore(50)
         (1..254).map { octet ->
             async {
-                val ip = "$prefix.$octet"
-                // Memprioritaskan port 8002 (Secure) dibanding port 8001 (Legacy) saat scanning subnet
-                val openPort = when {
-                    isPortOpen(ip, 8002) -> 8002
-                    isPortOpen(ip, 8001) -> 8001
-                    else -> null
-                }
-                if (openPort != null) {
-                    val info = fetchDeviceInfo(ip)
-                    TvDevice(
-                        ipAddress = ip,
-                        name = info?.first ?: "Samsung TV",
-                        macAddress = info?.second,
-                        port = openPort
-                    )
-                } else {
-                    null
+                semaphore.withPermit {
+                    val ip = "$prefix.$octet"
+                    val openPort = when {
+                        isPortOpen(ip, 8002) -> 8002
+                        isPortOpen(ip, 8001) -> 8001
+                        else -> null
+                    }
+                    if (openPort != null) {
+                        val info = fetchDeviceInfo(ip, openPort)
+                        TvDevice(
+                            ipAddress = ip,
+                            name = info?.first ?: "Samsung TV",
+                            macAddress = info?.second,
+                            port = openPort
+                        )
+                    } else {
+                        null
+                    }
                 }
             }
         }.awaitAll().filterNotNull()

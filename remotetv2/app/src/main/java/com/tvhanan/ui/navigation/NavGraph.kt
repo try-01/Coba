@@ -126,14 +126,15 @@ fun TvRemoteNavGraph(
                 factory = object : ViewModelProvider.Factory {
                     @Suppress("UNCHECKED_CAST")
                     override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return RemoteViewModel(ip, port, null, com.tvhanan.data.network.TvWebSocketClient(), serviceLocator.preferences) as T
+                        return RemoteViewModel(ip, port, null, serviceLocator.webSocketClient, serviceLocator.preferences) as T
                     }
                 }
             )
 
             val connectionStateForSync by viewModel.connectionState.collectAsStateWithLifecycle()
 
-            androidx.compose.runtime.LaunchedEffect(ip, port) {
+            // Sinkronisasi awal: ip, port, dan status koneksi aktif
+            androidx.compose.runtime.LaunchedEffect(ip, port, connectionStateForSync) {
                 val mac = serviceLocator.preferences.macAddress.first()
                 val token = serviceLocator.preferences.getToken()
                 settingsViewModel.setActiveDevice(
@@ -145,12 +146,7 @@ fun TvRemoteNavGraph(
                 )
             }
 
-            androidx.compose.runtime.LaunchedEffect(connectionStateForSync) {
-                settingsViewModel.updateConnectionStatus(
-                    connectionStateForSync == com.tvhanan.domain.model.ConnectionState.CONNECTED
-                )
-            }
-
+            // Sinkronisasi TAMBAHAN: update ketika pairing token baru masuk
             androidx.compose.runtime.LaunchedEffect(ip, port) {
                 viewModel.observeNewToken { newToken ->
                     val mac = serviceLocator.preferences.macAddress.first()

@@ -17,13 +17,16 @@ import org.json.JSONObject
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
-import javax.net.ssl.HostnameVerifier
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import kotlin.coroutines.resume
 
-class TvWebSocketClient {
+class TvWebSocketClient(
+    private val sslTrustManager: SslTrustManager? = null
+) {
 
     companion object {
         private const val TAG = "TvHanan"
@@ -35,20 +38,6 @@ class TvWebSocketClient {
         override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
     })
 
-    /** Hanya izinkan koneksi ke IP private/lokal untuk membatasi surface MITM */
-    private val localHostnameVerifier = HostnameVerifier { hostname, _ ->
-        hostname.startsWith("192.168.") || hostname.startsWith("10.") ||
-        hostname.startsWith("172.16.") || hostname.startsWith("172.17.") ||
-        hostname.startsWith("172.18.") || hostname.startsWith("172.19.") ||
-        hostname.startsWith("172.20.") || hostname.startsWith("172.21.") ||
-        hostname.startsWith("172.22.") || hostname.startsWith("172.23.") ||
-        hostname.startsWith("172.24.") || hostname.startsWith("172.25.") ||
-        hostname.startsWith("172.26.") || hostname.startsWith("172.27.") ||
-        hostname.startsWith("172.28.") || hostname.startsWith("172.29.") ||
-        hostname.startsWith("172.30.") || hostname.startsWith("172.31.") ||
-        hostname == "localhost" || hostname == "127.0.0.1"
-    }
-
     private val sslClient by lazy {
         try {
             val sslCtx = SSLContext.getInstance("TLS")
@@ -58,7 +47,9 @@ class TvWebSocketClient {
                 .readTimeout(0, TimeUnit.MILLISECONDS)
                 .connectTimeout(8, TimeUnit.SECONDS)
                 .sslSocketFactory(sslCtx.socketFactory, trustAllCerts[0] as X509TrustManager)
-                .hostnameVerifier(localHostnameVerifier)
+                .hostnameVerifier { hostname, session ->
+                    sslTrustManager?.verifyOrTrust(hostname, session) ?: true
+                }
                 .build()
         } catch (e: Exception) {
             Log.e(TAG, "SSL client init error: ${e.message}")
@@ -68,15 +59,15 @@ class TvWebSocketClient {
 
     private val plainClient by lazy {
         OkHttpClient.Builder()
-            .pingInterval(15, TimeUnit.SECONDS) // Mencegah TV memutus koneksi
+            .pingInterval(15, TimeUnit.SECONDS)
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .connectTimeout(8, TimeUnit.SECONDS)
             .build()
     }
 
-    private var webSocket: WebSocket? = null
+    private val webSocketRef = AtomicReference<WebSocket?>(null)
+    private val connectionId = AtomicLong(0)
     private var currentToken: String? = null
-    private var connectionGen = 0L
 
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
@@ -89,8 +80,9 @@ class TvWebSocketClient {
     }
 
     suspend fun connect(ip: String, port: Int, token: String? = null): Result<WebSocket> {
+        val currentId = connectionId.incrementAndGet()
         disconnect()
-        val gen = ++connectionGen
+        sslTrustManager?.loadFingerprint(ip)
 
         return suspendCancellableCoroutine { continuation ->
             currentToken = token
@@ -107,7 +99,7 @@ class TvWebSocketClient {
             try {
                 val ws = client.newWebSocket(request, object : WebSocketListener() {
                     override fun onOpen(ws: WebSocket, response: Response) {
-                        if (connectionGen != gen) return
+                        if (connectionId.get() != currentId) return
                         Log.d(TAG, "Connected to $ip:$port")
                         _connectionState.value = ConnectionState.CONNECTED
                         if (continuation.isActive) {
@@ -120,39 +112,35 @@ class TvWebSocketClient {
                     }
 
                     override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
-                        if (connectionGen != gen) return
+                        if (connectionId.get() != currentId) return
                         val detail = t.message ?: t.javaClass.simpleName
                         Log.e(TAG, "Failed $ip:$port: $detail")
                         if (response != null) Log.e(TAG, "HTTP ${response.code}")
+
                         _connectionState.value = ConnectionState.ERROR
+
                         if (continuation.isActive) {
                             continuation.resume(Result.failure(t))
                         }
                     }
 
                     override fun onClosed(ws: WebSocket, code: Int, reason: String) {
-                        if (connectionGen != gen) return
+                        if (connectionId.get() != currentId) return
                         Log.d(TAG, "Closed: $code $reason")
-                        if (webSocket == ws) {
-                            _connectionState.value = ConnectionState.DISCONNECTED
-                            webSocket = null
-                        }
+                        webSocketRef.compareAndSet(ws, null)
+                        _connectionState.value = ConnectionState.DISCONNECTED
                     }
                 })
 
-                webSocket = ws
+                webSocketRef.set(ws)
 
                 continuation.invokeOnCancellation {
+                    if (connectionId.get() != currentId) return@invokeOnCancellation
                     ws.close(1001, "Cancelled")
-                    if (connectionGen == gen) {
-                        if (webSocket == ws) {
-                            _connectionState.value = ConnectionState.DISCONNECTED
-                            webSocket = null
-                        }
-                    }
+                    webSocketRef.compareAndSet(ws, null)
+                    _connectionState.value = ConnectionState.DISCONNECTED
                 }
             } catch (e: Exception) {
-                if (connectionGen != gen) return@suspendCancellableCoroutine
                 Log.e(TAG, "WS error: ${e.message}")
                 _connectionState.value = ConnectionState.ERROR
                 if (continuation.isActive) {
@@ -165,7 +153,6 @@ class TvWebSocketClient {
     suspend fun connectWithFallback(ip: String, token: String? = null): Result<WebSocket> {
         Log.d(TAG, "=== Connecting $ip sequentially ===")
 
-        // Coba port 8002 lalu 8001 secara berurutan agar aman dari tabrakan state
         for (port in listOf(8002, 8001)) {
             Log.d(TAG, "Trying $ip:$port...")
             val result = connect(ip, port, token)
@@ -181,7 +168,7 @@ class TvWebSocketClient {
     fun sendKey(key: RemoteKey): Boolean {
         return try {
             val payload = SamsungKeyMapper.createKeyPressPayload(key)
-            webSocket?.send(payload) ?: false
+            webSocketRef.get()?.send(payload) ?: false
         } catch (e: Exception) {
             Log.e(TAG, "Send error: ${e.message}")
             false
@@ -189,8 +176,7 @@ class TvWebSocketClient {
     }
 
     fun disconnect() {
-        webSocket?.close(1000, "User disconnected")
-        webSocket = null
+        webSocketRef.getAndSet(null)?.close(1000, "User disconnected")
         _connectionState.value = ConnectionState.DISCONNECTED
     }
 
@@ -204,11 +190,9 @@ class TvWebSocketClient {
         try {
             val json = JSONObject(text)
             Log.d(TAG, "Event: ${json.optString("event")}")
-            
-            // Ekstrak token secara universal dari object "data", karena Samsung 
-            // sering menggunakan "ms.channel.connect" (bukan "ms.channel.ready") saat pairing awal
+
             val newToken = json.optJSONObject("data")?.optString("token")
-            
+
             if (!newToken.isNullOrEmpty() && currentToken != newToken) {
                 currentToken = newToken
                 _tokenReceived.value = newToken

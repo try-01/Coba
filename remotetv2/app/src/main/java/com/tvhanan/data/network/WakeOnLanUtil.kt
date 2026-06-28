@@ -48,11 +48,11 @@ object WakeOnLanUtil {
         intervalMillis: Long = 2000
     ): Boolean = withContext(Dispatchers.IO) {
         repeat(attempts) { attempt ->
-            if (sendWakeOnLan(macAddress, broadcastIp)) {
-                Log.d(TAG, "WoL attempt ${attempt + 1}/$attempts succeeded")
+            val sent = sendWakeOnLan(macAddress, broadcastIp)
+            if (sent) {
+                Log.d(TAG, "Attempt ${attempt + 1}/$attempts sent")
                 return@withContext true
             }
-            Log.w(TAG, "WoL attempt ${attempt + 1}/$attempts failed, retrying...")
             if (attempt < attempts - 1) {
                 kotlinx.coroutines.delay(intervalMillis)
             }

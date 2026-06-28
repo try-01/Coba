@@ -22,14 +22,9 @@ sealed interface ConnectionActionState {
 }
 
 /**
- * Preferensi tampilan remote. Catatan implementasi: `remoteSize` saat ini
- * disimpan di state SettingsViewModel tapi BELUM dikonsumsi oleh
- * RemoteScreen — untuk efek visual sungguhan (tombol membesar/mengecil),
- * RemoteScreen perlu membaca preferensi ini (mis. lewat ServiceLocator
- * yang menyediakan SettingsViewModel sbg singleton, atau lewat
- * SavedStateHandle/DataStore bersama) dan mengalikan ukuran dp tombol
- * dengan faktor skala sesuai RemoteSize. Ditandai jelas di sini supaya
- * tidak disangka sudah berfungsi penuh.
+ * Preferensi tampilan remote. Nilai [remoteSize] dikonsumsi oleh
+ * RemoteScreen lewat [NavGraph] sebagai [scaleFactor], yang
+ * mengalikan ukuran dp tombol-tombol remote.
  */
 data class RemoteUiPreferences(
     val hapticEnabled: Boolean = true,
@@ -72,7 +67,7 @@ class SettingsViewModel(
     private fun loadCurrentDevice() {
         viewModelScope.launch {
             val ip = preferences.lastIp.first()
-            val port = preferences.lastPort.first()?.toIntOrNull() ?: 8001
+            val port = preferences.lastPort.first()?.toIntOrNull() ?: 8002
             val mac = preferences.macAddress.first()
             if (ip != null) {
                 _tvDevice.value = TvDevice(ipAddress = ip, port = port, macAddress = mac)
@@ -84,10 +79,6 @@ class SettingsViewModel(
      * TvInfoCard di Settings langsung akurat tanpa menunggu DataStore. */
     fun setActiveDevice(ipAddress: String, port: Int, macAddress: String?, token: String? = null, isConnected: Boolean = false) {
         _tvDevice.value = TvDevice(ipAddress = ipAddress, port = port, macAddress = macAddress, token = token)
-        _isActuallyConnected.value = isConnected
-    }
-
-    fun updateConnectionStatus(isConnected: Boolean) {
         _isActuallyConnected.value = isConnected
     }
 

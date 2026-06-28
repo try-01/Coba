@@ -34,7 +34,6 @@ object AppLauncher {
                 connection.requestMethod = method
                 connection.connectTimeout = 4000
                 connection.readTimeout = 4000
-                connection.doOutput = false
 
                 val responseCode = connection.responseCode
                 connection.disconnect()

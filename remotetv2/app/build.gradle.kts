@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.tvhanan"
-        minSdk = 28
+        minSdk = 30
         targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
@@ -53,11 +53,10 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.okhttp)
     implementation(libs.datastore)
-    implementation(libs.security.crypto)
-    implementation(libs.errorprone.annotations)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
     implementation(libs.core.ktx)
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.tooling.preview)

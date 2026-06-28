@@ -70,15 +70,13 @@ fun RemoteScreen(
     onOpenSettings: () -> Unit,
     scaleFactor: Float = 1f,
     keepScreenOn: Boolean = true,
-    hapticEnabled: Boolean = true,
-    meshBackgroundEnabled: Boolean = true
+    hapticEnabled: Boolean = true,           // Parameter baru untuk sinkronisasi getar
+    meshBackgroundEnabled: Boolean = true     // Parameter baru untuk sinkronisasi aurora
 ) {
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val isMacAvailable by viewModel.isMacAvailable.collectAsStateWithLifecycle()
     val context = LocalContext.current
-
-    val dpDpadSize = remember(scaleFactor) { (216 * scaleFactor).dp }
 
     // SINKRONISASI GETAR: Hubungkan setelan dinamis haptic ke utility getar
     LaunchedEffect(hapticEnabled) {
@@ -158,7 +156,7 @@ fun RemoteScreen(
                             onLeft = { viewModel.sendKey(RemoteKey.DPAD_LEFT) },
                             onRight = { viewModel.sendKey(RemoteKey.DPAD_RIGHT) },
                             onOk = { viewModel.sendKey(RemoteKey.ENTER) },
-                            size = dpDpadSize
+                            size = (216 * scaleFactor).dp
                         )
                     }
                     BackHomeExitRow(viewModel, scaleFactor)
@@ -376,10 +374,9 @@ private fun BackHomeExitRow(viewModel: RemoteViewModel, scaleFactor: Float) {
 }
 
 private data class PillCell(
-    val label: String,
-    val isSymbol: Boolean,
-    val autoRepeat: Boolean = false,
-    val enabled: Boolean = true,
+    val label: String, 
+    val isSymbol: Boolean, 
+    val autoRepeat: Boolean = false, // Default bernilai false
     val onClick: () -> Unit
 )
 
@@ -390,7 +387,7 @@ private fun VolumeChannelSection(viewModel: RemoteViewModel, scaleFactor: Float)
             scaleFactor = scaleFactor,
             cells = listOf(
                 PillCell("−", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.VOL_DOWN) },
-                PillCell("🔊", isSymbol = true, autoRepeat = false, enabled = false) { },
+                PillCell("🔊", isSymbol = true) { },
                 PillCell("+", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.VOL_UP) },
                 PillCell("🔇", isSymbol = true) { viewModel.sendKey(RemoteKey.MUTE) }
             )
@@ -399,7 +396,7 @@ private fun VolumeChannelSection(viewModel: RemoteViewModel, scaleFactor: Float)
             scaleFactor = scaleFactor,
             cells = listOf(
                 PillCell("−", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.CH_DOWN) },
-                PillCell("📺", isSymbol = true, autoRepeat = false, enabled = false) { },
+                PillCell("📺", isSymbol = true) { },
                 PillCell("+", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.CH_UP) },
                 PillCell("☰", isSymbol = true) { viewModel.sendKey(RemoteKey.CH_LIST) }
             )
@@ -433,8 +430,7 @@ private fun PillRow(cells: List<PillCell>, scaleFactor: Float) {
                 onClick = cell.onClick,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 shape = shape,
-                autoRepeat = cell.autoRepeat,
-                enabled = cell.enabled,
+                autoRepeat = cell.autoRepeat, // SALURKAN AUTO-REPEAT DI SINI
                 borderColor = Color.Transparent
             ) {
                 Text(
