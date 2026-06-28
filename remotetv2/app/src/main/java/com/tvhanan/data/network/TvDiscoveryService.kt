@@ -9,7 +9,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Semaphore
+import kotlinx.coroutines.sync.Semaphore
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.Inet4Address
@@ -138,13 +138,10 @@ results // CUKUP TULIS NAMA VARIABELNYA SAJA TANPA "return"
 
     private suspend fun scanSubnet(prefix: String): List<TvDevice> = coroutineScope {
         val semaphore = Semaphore(20)
-        val results = (1..254)
-            .map { octet ->
-                async { semaphore.withPermit { scanSingleIp("$prefix.$octet") } }
-            }
-            .awaitAll()
-            .filterNotNull()
-        results
+        val tasks = (1..254).map { octet ->
+            async<TvDevice?> { semaphore.withPermit { scanSingleIp("$prefix.$octet") } }
+        }
+        tasks.awaitAll().filterNotNull()
     }
 
     private suspend fun scanSingleIp(ip: String): TvDevice? {

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import com.tvhanan.data.network.AppLauncher
 
@@ -40,7 +41,7 @@ class RemoteViewModel(
 
     init {
         viewModelScope.launch {
-            val mac = macAddress ?: preferences?.macAddress?.first()
+            val mac = macAddress ?: preferences?.macAddress?.firstOrNull()
             _isMacAvailable.value = !mac.isNullOrBlank()
         }
     }
@@ -97,7 +98,7 @@ class RemoteViewModel(
 
     fun wakeOnLan() {
         viewModelScope.launch {
-            val mac = macAddress ?: preferences?.macAddress?.first()
+            val mac = macAddress ?: preferences?.macAddress?.firstOrNull()
             if (!mac.isNullOrBlank()) {
                 Log.d(TAG, "Mencoba menyalakan TV via WoL (dengan Retry) ke MAC: $mac")
                 

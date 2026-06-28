@@ -27,6 +27,7 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 datastore = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+coroutines-sync = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-sync", version.ref = "coroutines" }
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "security" }
 

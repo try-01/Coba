@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.datastore)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
+    implementation(libs.coroutines.sync)
     implementation(libs.core.ktx)
     implementation(libs.security.crypto)
 

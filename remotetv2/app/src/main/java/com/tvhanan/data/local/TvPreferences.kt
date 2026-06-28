@@ -3,6 +3,7 @@ package com.tvhanan.data.local
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.datastore.core.DataStore
@@ -52,18 +53,15 @@ class TvPreferences(private val context: Context) {
         private val KEY_LAST_IP = stringPreferencesKey("last_ip")
         private val KEY_LAST_PORT = stringPreferencesKey("last_port")
         private val KEY_MAC_ADDRESS = stringPreferencesKey("mac_address")
+        private val KEY_REMOTE_SIZE = intPreferencesKey("remote_size")
         private const val KEY_TOKEN = "token"
-        private const val KEY_REMOTE_SIZE = "remote_size"
     }
 
     // All flows from single source - no duplicate DataStore subscriptions
     val lastIp: Flow<String?> = context.preferencesFlow.map { it[KEY_LAST_IP] }
     val lastPort: Flow<String?> = context.preferencesFlow.map { it[KEY_LAST_PORT] }
     val macAddress: Flow<String?> = context.preferencesFlow.map { it[KEY_MAC_ADDRESS] }
-    val remoteSize: Flow<Int> = context.preferencesFlow.map { prefs ->
-        val intVal = prefs[Preferences.Key("remote_size")]
-        if (intVal is Int) intVal else 1
-    }
+    val remoteSize: Flow<Int> = context.preferencesFlow.map { it[KEY_REMOTE_SIZE] ?: 1 }
 
     // Token dibaca dari EncryptedSharedPreferences (bukan Flow karena enkripsi synchronous)
     fun getToken(): String? = encryptedPrefs.getString(KEY_TOKEN, null)
@@ -86,7 +84,7 @@ class TvPreferences(private val context: Context) {
     }
 
     fun saveRemoteSize(size: Int) {
-        encryptedPrefs.edit().putInt(KEY_REMOTE_SIZE, size).apply()
+        context.dataStore.edit { it[KEY_REMOTE_SIZE] = size }
     }
 
     suspend fun clear() {

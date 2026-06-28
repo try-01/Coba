@@ -50,8 +50,8 @@ private class MeshDrawCache {
     private var cachedCommands: (DrawScope.() -> Unit)? = null
     
     fun drawMesh(drawScope: DrawScope) {
-        val currentWidth = drawScope.size.width.roundToInt()
-        val currentHeight = drawScope.size.height.roundToInt()
+        val currentWidth = drawScope.size.width.toInt()
+        val currentHeight = drawScope.size.height.toInt()
         if (lastWidth != currentWidth || lastHeight != currentHeight || cachedCommands == null) {
             lastWidth = currentWidth
             lastHeight = currentHeight

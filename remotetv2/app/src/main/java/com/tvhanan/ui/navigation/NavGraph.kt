@@ -57,10 +57,10 @@ fun TvRemoteNavGraph(
     )
 
     val startRoute by androidx.compose.runtime.produceState<String?>(initialValue = null) {
-        val savedIp = serviceLocator.preferences.lastIp.first()
+        val savedIp = serviceLocator.preferences.lastIp.firstOrNull()
         value = if (savedIp != null) {
             // Ubah fallback port bawaan ke 8002 agar selaras dengan prioritas WSS
-            val savedPort = serviceLocator.preferences.lastPort.first()?.toIntOrNull() ?: 8002
+            val savedPort = serviceLocator.preferences.lastPort.firstOrNull()?.toIntOrNull() ?: 8002
             Routes.remoteRoute(savedIp, savedPort)
         } else {
             Routes.SCAN
@@ -135,7 +135,7 @@ fun TvRemoteNavGraph(
 
             // Sinkronisasi awal: ip, digabung dengan sinkronisasi token - single LaunchedEffect
             androidx.compose.runtime.LaunchedEffect(ip, port, connectionStateForSync) {
-                val mac = serviceLocator.preferences.macAddress.first()
+                val mac = serviceLocator.preferences.macAddress.firstOrNull()
                 val token = serviceLocator.preferences.getToken()
                 settingsViewModel.setActiveDevice(
                     ipAddress = ip,
@@ -147,7 +147,7 @@ fun TvRemoteNavGraph(
                 
                 // Observe new token changes
                 viewModel.observeNewToken { newToken ->
-                    val currentMac = serviceLocator.preferences.macAddress.first()
+                    val currentMac = serviceLocator.preferences.macAddress.firstOrNull()
                     settingsViewModel.setActiveDevice(
                         ipAddress = ip,
                         port = port,
