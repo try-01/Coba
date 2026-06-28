@@ -24,6 +24,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.tvhanan.ui.theme.GlassBorder
 import com.tvhanan.ui.theme.GlassBorderStrong
 import com.tvhanan.ui.theme.GlassSurface
@@ -53,16 +61,13 @@ fun GlassButton(
     borderColor: Color = GlassBorder,
     contentColor: Color = TextPrimary,
     enabled: Boolean = true,
+    autoRepeat: Boolean = false, // Parameter baru untuk kontrol auto-repeat
     onPressedChange: ((Boolean) -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    // visualPressed dipaksa bertahan minimal ~120ms walau isPressed asli
-    // sudah balik ke false lebih cepat (tap cepat) — supaya animasi scale
-    // SELALU sempat terlihat minimal 1-2 frame, tidak "ketelan" oleh
-    // tap-release yang lebih cepat dari waktu render.
     var visualPressed by remember { mutableStateOf(false) }
 
     LaunchedEffect(isPressed) {
@@ -88,14 +93,25 @@ fun GlassButton(
         Modifier.background(if (visualPressed) GlassSurfacePressed else GlassSurface, shape)
     }
 
+    // Pilih modifier klik secara dinamis berdasarkan parameter autoRepeat
+    val clickModifier = if (autoRepeat) {
+        Modifier.repeatingClickable(
+            interactionSource = interactionSource,
+            enabled = enabled,
+            onClick = onClick
+        )
+    } else {
+        Modifier.clickable(
+            interactionSource = interactionSource,
+            indication = null,
+            enabled = enabled,
+            onClick = onClick
+        )
+    }
+
     Box(
         modifier = modifier
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                enabled = enabled,
-                onClick = onClick
-            )
+            .then(clickModifier) // Pasang modifier klik dinamis
             .scale(scale)
             .then(backgroundModifier)
             .border(1.dp, if (visualPressed) GlassBorderStrong else borderColor, shape),
@@ -103,6 +119,51 @@ fun GlassButton(
     ) {
         CompositionLocalProvider(LocalContentColor provides contentColor) {
             content()
+        }
+    }
+}
+
+// Ekstensi helper modifier baru untuk menangani penekanan berulang secara aman
+fun Modifier.repeatingClickable(
+    interactionSource: MutableInteractionSource,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+): Modifier = this.pointerInput(interactionSource, enabled) {
+    if (!enabled) return@pointerInput
+    coroutineScope {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            val press = PressInteraction.Press(down.position)
+            
+            // Emulasikan sentuhan ke interaction source agar tombol mengecil secara visual
+            launch {
+                interactionSource.emit(press)
+            }
+            
+           // Luncurkan perulangan klik di coroutine terpisah (Tuned to Physical Remote Standards)
+            val repeatJob = launch {
+                onClick()  // Klik pertama langsung ditembak instan tanpa jeda (0ms)
+                delay(300) // Jeda penahanan awal (300ms) sebelum mulai mengulang secara otomatis
+                while (true) {
+                    onClick()
+                    delay(100) // Mengirim klik setiap 100ms (10 klik per detik - Respons instan & aman)
+                }
+            }
+            
+            // Tunggu hingga jari diangkat atau ditarik keluar bounds
+            val up = waitForUpOrCancellation()
+            
+            // Batalkan loop pengulangan klik seketika
+            repeatJob.cancel()
+            
+            // Lepaskan status visual tombol kembali normal
+            launch {
+                if (up != null) {
+                    interactionSource.emit(PressInteraction.Release(press))
+                } else {
+                    interactionSource.emit(PressInteraction.Cancel(press))
+                }
+            }
         }
     }
 }

@@ -32,6 +32,7 @@ fun HapticGlassButton(
     borderColor: Color = GlassBorder,
     contentColor: Color = TextPrimary,
     enabled: Boolean = true,
+    autoRepeat: Boolean = false, // Tambahkan parameter di sini
     content: @Composable () -> Unit
 ) {
     GlassButton(
@@ -42,12 +43,12 @@ fun HapticGlassButton(
         borderColor = borderColor,
         contentColor = contentColor,
         enabled = enabled,
+        autoRepeat = autoRepeat, // Salurkan ke GlassButton
         onPressedChange = { pressed -> if (pressed) HapticUtil.tick() },
         content = content
     )
 }
 
-/** Varian dengan label teks singkat, dipakai utk tombol angka/pill/label pendek. */
 @Composable
 fun HapticGlassLabelButton(
     label: String,
@@ -57,6 +58,7 @@ fun HapticGlassLabelButton(
     gradientColors: List<Color>? = null,
     borderColor: Color = GlassBorder,
     contentColor: Color = TextPrimary,
+    autoRepeat: Boolean = false, // Tambahkan parameter di sini
     fontSize: TextUnit = 17.sp
 ) {
     HapticGlassButton(
@@ -65,7 +67,8 @@ fun HapticGlassLabelButton(
         shape = shape,
         gradientColors = gradientColors,
         borderColor = borderColor,
-        contentColor = contentColor
+        contentColor = contentColor,
+        autoRepeat = autoRepeat // Salurkan ke HapticGlassButton
     ) {
         Text(
             text = label,

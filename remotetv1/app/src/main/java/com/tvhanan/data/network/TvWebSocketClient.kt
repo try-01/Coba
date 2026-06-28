@@ -92,7 +92,6 @@ class TvWebSocketClient {
                     override fun onOpen(ws: WebSocket, response: Response) {
                         Log.d(TAG, "Connected to $ip:$port")
                         _connectionState.value = ConnectionState.CONNECTED
-                        sendKey(RemoteKey.HOME)
                         if (continuation.isActive) {
                             continuation.resume(Result.success(ws))
                         }

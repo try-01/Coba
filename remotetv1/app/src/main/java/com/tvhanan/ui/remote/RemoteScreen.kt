@@ -373,37 +373,42 @@ private fun BackHomeExitRow(viewModel: RemoteViewModel, scaleFactor: Float) {
     }
 }
 
+private data class PillCell(
+    val label: String, 
+    val isSymbol: Boolean, 
+    val autoRepeat: Boolean = false, // Default bernilai false
+    val onClick: () -> Unit
+)
+
 @Composable
 private fun VolumeChannelSection(viewModel: RemoteViewModel, scaleFactor: Float) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         PillRow(
             scaleFactor = scaleFactor,
             cells = listOf(
-                PillCell("−", isSymbol = true) { viewModel.sendKey(RemoteKey.VOL_DOWN) },
-                PillCell("🔊", isSymbol = true) { }, // VOL -> Speaker Ikon
-                PillCell("+", isSymbol = true) { viewModel.sendKey(RemoteKey.VOL_UP) },
-                PillCell("🔇", isSymbol = true) { viewModel.sendKey(RemoteKey.MUTE) } // Mute -> Mute Ikon
+                PillCell("−", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.VOL_DOWN) },
+                PillCell("🔊", isSymbol = true) { },
+                PillCell("+", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.VOL_UP) },
+                PillCell("🔇", isSymbol = true) { viewModel.sendKey(RemoteKey.MUTE) }
             )
         )
         PillRow(
             scaleFactor = scaleFactor,
             cells = listOf(
-                PillCell("−", isSymbol = true) { viewModel.sendKey(RemoteKey.CH_DOWN) },
-                PillCell("📺", isSymbol = true) { }, // CH -> TV Ikon
-                PillCell("+", isSymbol = true) { viewModel.sendKey(RemoteKey.CH_UP) },
-                PillCell("☰", isSymbol = true) { viewModel.sendKey(RemoteKey.CH_LIST) } // List -> Menu List Ikon
+                PillCell("−", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.CH_DOWN) },
+                PillCell("📺", isSymbol = true) { },
+                PillCell("+", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.CH_UP) },
+                PillCell("☰", isSymbol = true) { viewModel.sendKey(RemoteKey.CH_LIST) }
             )
         )
         HapticGlassLabelButton(
-            label = "⇄", // PRE-CH -> Simbol Tukar Saluran Dua Arah
+            label = "⇄",
             onClick = { viewModel.sendKey(RemoteKey.PRE_CH) },
             modifier = Modifier.fillMaxWidth().height((46 * scaleFactor).dp),
             fontSize = (20 * scaleFactor).sp
         )
     }
 }
-
-private data class PillCell(val label: String, val isSymbol: Boolean, val onClick: () -> Unit)
 
 @Composable
 private fun PillRow(cells: List<PillCell>, scaleFactor: Float) {
@@ -425,6 +430,7 @@ private fun PillRow(cells: List<PillCell>, scaleFactor: Float) {
                 onClick = cell.onClick,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
                 shape = shape,
+                autoRepeat = cell.autoRepeat, // SALURKAN AUTO-REPEAT DI SINI
                 borderColor = Color.Transparent
             ) {
                 Text(
@@ -493,19 +499,21 @@ private fun ColorKeyButton(label: String, color: Color, modifier: Modifier, heig
 @Composable
 private fun MediaTransportRow(viewModel: RemoteViewModel, scaleFactor: Float) {
     val buttons = listOf(
-        "\u23EA" to { viewModel.sendKey(RemoteKey.REWIND) },
-        "\u25B6" to { viewModel.sendKey(RemoteKey.PLAY) },
-        "\u23F8" to { viewModel.sendKey(RemoteKey.PAUSE) },
-        "\u23F9" to { viewModel.sendKey(RemoteKey.STOP) },
-        "\u23E9" to { viewModel.sendKey(RemoteKey.FAST_FORWARD) }
+        // Triple berisi: Icon, Perintah, dan status Auto-Repeat (true/false)
+        Triple("\u23EA", { viewModel.sendKey(RemoteKey.REWIND) }, true),      // Rewind -> TRUE
+        Triple("\u25B6", { viewModel.sendKey(RemoteKey.PLAY) }, false),
+        Triple("\u23F8", { viewModel.sendKey(RemoteKey.PAUSE) }, false),
+        Triple("\u23F9", { viewModel.sendKey(RemoteKey.STOP) }, false),
+        Triple("\u23E9", { viewModel.sendKey(RemoteKey.FAST_FORWARD) }, true) // Fast Forward -> TRUE
     )
     val height = (52 * scaleFactor).dp
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        buttons.forEach { (icon, action) ->
+        buttons.forEach { (icon, action, autoRepeat) ->
             HapticGlassButton(
                 onClick = action,
                 modifier = Modifier.weight(1f).height(height),
                 shape = RoundedCornerShape(15.dp),
+                autoRepeat = autoRepeat, // SALURKAN AUTO-REPEAT DI SINI
                 gradientColors = listOf(MediaAccent.copy(alpha = 0.14f), MediaAccent2.copy(alpha = 0.10f)),
                 borderColor = MediaAccent.copy(alpha = 0.25f)
             ) {

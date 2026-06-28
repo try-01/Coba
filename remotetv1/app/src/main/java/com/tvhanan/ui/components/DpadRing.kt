@@ -110,6 +110,7 @@ private fun androidx.compose.foundation.layout.BoxScope.DpadArrowZone(
         onClick = onClick,
         modifier = zoneModifier.size(50.dp),
         shape = RoundedCornerShape(15.dp),
+        autoRepeat = true, // AKTIFFKAN AUTO-REPEAT DI SINI
         borderColor = NavAccent.copy(alpha = 0.08f)
     ) {
         Text(
