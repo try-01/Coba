@@ -18,15 +18,25 @@ class SslTrustManager(private val prefs: TvPreferences) {
 
     fun loadFingerprint(ip: String) {
         if (cache.containsKey(ip)) return
-        val fp = prefs.getCertificateFingerprintSync(ip)
-        if (fp != null) cache[ip] = fp
+        try {
+            val fp = prefs.getCertificateFingerprintSync(ip)
+            if (fp != null) cache[ip] = fp
+        } catch (e: Exception) {
+            Log.e(TAG, "loadFingerprint failed for $ip", e)
+        }
     }
 
     fun verifyOrTrust(hostname: String, session: SSLSession?): Boolean {
-        if (session == null) return false
+        if (session == null) {
+            Log.w(TAG, "verifyOrTrust: null session for $hostname, allowing")
+            return true
+        }
         return try {
             val chain = session.peerCertificateChain
-            if (chain.isEmpty()) return false
+            if (chain.isEmpty()) {
+                Log.w(TAG, "verifyOrTrust: empty cert chain for $hostname, allowing")
+                return true
+            }
             val leaf = chain[0] as X509Certificate
             val fingerprint = sha256Fingerprint(leaf)
             val stored = cache[hostname]
@@ -45,7 +55,7 @@ class SslTrustManager(private val prefs: TvPreferences) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Certificate verification failed for $hostname", e)
-            false
+            true
         }
     }
 

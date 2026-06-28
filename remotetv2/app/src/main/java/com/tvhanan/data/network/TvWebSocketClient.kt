@@ -44,7 +44,7 @@ class TvWebSocketClient(
             sslCtx.init(null, trustAllCerts, SecureRandom())
             OkHttpClient.Builder()
                 .pingInterval(15, TimeUnit.SECONDS)
-                .readTimeout(0, TimeUnit.MILLISECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
                 .connectTimeout(8, TimeUnit.SECONDS)
                 .sslSocketFactory(sslCtx.socketFactory, trustAllCerts[0] as X509TrustManager)
                 .hostnameVerifier { hostname, session ->
@@ -60,7 +60,7 @@ class TvWebSocketClient(
     private val plainClient by lazy {
         OkHttpClient.Builder()
             .pingInterval(15, TimeUnit.SECONDS)
-            .readTimeout(0, TimeUnit.MILLISECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
             .connectTimeout(8, TimeUnit.SECONDS)
             .build()
     }
