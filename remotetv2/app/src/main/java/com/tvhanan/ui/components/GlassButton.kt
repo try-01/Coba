@@ -27,6 +27,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -97,14 +98,15 @@ fun GlassButton(
         modifier = modifier
             .then(clickModifier)
             .pointerInput(onPressedChange, enabled) {
+                var resetJob: Job? = null
                 awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
+                    awaitFirstDown(requireUnconsumed = false)
                     if (!enabled) return@awaitEachGesture
+                    resetJob?.cancel()
                     visualPressed = true
                     onPressedChange?.invoke(true)
-                    try {
-                        waitForUpOrCancellation()
-                    } finally {
+                    waitForUpOrCancellation()
+                    resetJob = launch {
                         delay(110)
                         visualPressed = false
                         onPressedChange?.invoke(false)
