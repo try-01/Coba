@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -31,7 +32,7 @@ import com.tvhanan.ui.theme.MeshBlob4
  */
 @Composable
 fun MeshGradientBackground(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.background(BgBase)) {
+    Canvas(modifier = modifier.background(BgBase).graphicsLayer()) {
         drawMeshBlob(
             color = MeshBlob1,
             center = Offset(size.width * 0.08f, size.height * 0.05f),

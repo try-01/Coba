@@ -32,7 +32,7 @@ class SslTrustManager(private val prefs: TvPreferences) {
             return true
         }
         return try {
-            val chain = session.peerCertificateChain
+            val chain = session.peerCertificates
             if (chain.isEmpty()) {
                 Log.w(TAG, "verifyOrTrust: empty cert chain for $hostname, allowing")
                 return true
