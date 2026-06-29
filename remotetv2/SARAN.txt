@@ -1,0 +1,79 @@
+saran dari saya:
+1. Perbaiki MainActivity.kt menjadi
+
+package com.tvhanan
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.navigation.compose.rememberNavController
+import com.tvhanan.ui.navigation.TvRemoteNavGraph
+import com.tvhanan.ui.theme.TvRemoteTheme
+import com.tvhanan.util.HapticUtil // Pastikan ini di-import
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+
+        // --------------------------------------------------------
+        // INI KUNCI UTAMANYA: Nyalakan mesin getar saat aplikasi dibuka
+        // --------------------------------------------------------
+        HapticUtil.init(applicationContext)
+
+        val app = application as TvRemoteApp
+
+        setContent {
+            TvRemoteTheme {
+                val navController = rememberNavController()
+                TvRemoteNavGraph(
+                    navController = navController,
+                    serviceLocator = app.serviceLocator,
+                    onExitApp = { finish() }
+                )
+            }
+        }
+    }
+}
+
+
+2. Sempurnakan HapticUtil.kt Agar kompatibel dengan HP Android terbaru menjadi
+
+package com.tvhanan.util
+
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+
+object HapticUtil {
+
+    private var vibrator: Vibrator? = null
+    var isEnabled: Boolean = true // Flag dari SettingsScreen
+
+    fun init(context: Context) {
+        // Logika aman untuk semua versi Android
+        vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        }
+    }
+
+    fun tick() {
+        val v = vibrator ?: return // Sekarang ini tidak akan null lagi karena init() sudah dipanggil di MainActivity
+        if (!isEnabled) return // Toggle Anda mengontrol ini
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val effect = VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
+            v.vibrate(effect)
+        } else {
+            @Suppress("DEPRECATION")
+            v.vibrate(25)
+        }
+    }
+}
