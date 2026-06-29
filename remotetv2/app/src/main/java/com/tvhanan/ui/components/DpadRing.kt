@@ -1,40 +1,38 @@
 package com.tvhanan.ui.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.tvhanan.ui.theme.NavAccent
 import com.tvhanan.ui.theme.NavAccent2
 import com.tvhanan.ui.theme.TextPrimary
+import com.tvhanan.util.HapticUtil
 
-/**
- * D-pad dengan cincin conic-gradient teal->biru mengelilingi 4 tombol
- * arah + tombol OK kaca di tengah. Ini elemen signature yang membedakan
- * dari D-pad Material/CircleShape solid biasa.
- *
- * Catatan: di Compose, Text di dalam Box(contentAlignment = Center)
- * otomatis center secara akurat — bug optical-centering yang sempat
- * terjadi di versi HTML/CSS preview (akibat letter-spacing) tidak
- * relevan di sini.
- */
 private enum class DpadDirection { UP, DOWN, LEFT, RIGHT }
 
 @Composable
@@ -58,7 +56,11 @@ fun DpadRing(
     }
     val radialBrush = remember {
         Brush.radialGradient(
-            listOf(Color(0xFF14161C), Color(0xFF0D0E12))
+            listOf(
+                NavAccent.copy(alpha = 0.14f),
+                Color(0xFF12141A),
+                Color(0xFF0A0B0E)
+            )
         )
     }
     Box(
@@ -105,7 +107,7 @@ private fun androidx.compose.foundation.layout.BoxScope.DpadArrowZone(
     alignment: Alignment,
     direction: DpadDirection
 ) {
-    val edgePadding = 6.dp
+    val edgePadding = 2.dp
     val zoneModifier = when (direction) {
         DpadDirection.UP -> Modifier.align(alignment).padding(top = edgePadding)
         DpadDirection.DOWN -> Modifier.align(alignment).padding(bottom = edgePadding)
@@ -113,12 +115,28 @@ private fun androidx.compose.foundation.layout.BoxScope.DpadArrowZone(
         DpadDirection.RIGHT -> Modifier.align(alignment).padding(end = edgePadding)
     }
 
-    HapticGlassButton(
-        onClick = onClick,
-        modifier = zoneModifier.size(50.dp),
-        shape = RoundedCornerShape(15.dp),
-        autoRepeat = true, // AKTIFKAN AUTO-REPEAT DI SINI
-        borderColor = NavAccent.copy(alpha = 0.08f)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.88f else 1f,
+        animationSpec = tween(durationMillis = 70, easing = FastOutSlowInEasing),
+        label = "dpadArrowScale"
+    )
+
+    LaunchedEffect(isPressed) {
+        if (isPressed) HapticUtil.tick()
+    }
+
+    Box(
+        modifier = zoneModifier
+            .size(64.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .background(
+                if (isPressed) NavAccent.copy(alpha = 0.16f) else Color.Transparent,
+                CircleShape
+            )
+            .repeatingClickable(interactionSource = interactionSource, onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = when (direction) {
@@ -128,8 +146,8 @@ private fun androidx.compose.foundation.layout.BoxScope.DpadArrowZone(
                 DpadDirection.RIGHT -> Icons.Filled.KeyboardArrowRight
             },
             contentDescription = null,
-            tint = TextPrimary.copy(alpha = 0.85f),
-            modifier = Modifier.size(26.dp)
+            tint = TextPrimary,
+            modifier = Modifier.size(34.dp)
         )
     }
 }
