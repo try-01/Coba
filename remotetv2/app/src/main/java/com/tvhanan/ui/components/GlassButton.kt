@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
@@ -15,7 +14,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,25 +59,11 @@ fun GlassButton(
     borderColor: Color = GlassBorder,
     contentColor: Color = TextPrimary,
     enabled: Boolean = true,
-    autoRepeat: Boolean = false, // Parameter baru untuk kontrol auto-repeat
+    autoRepeat: Boolean = false,
     onPressedChange: ((Boolean) -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
     var visualPressed by remember { mutableStateOf(false) }
-
-    LaunchedEffect(isPressed) {
-        if (isPressed) {
-            visualPressed = true
-            onPressedChange?.invoke(true)
-        } else {
-            kotlinx.coroutines.delay(110)
-            visualPressed = false
-            onPressedChange?.invoke(false)
-        }
-    }
 
     val scale by animateFloatAsState(
         targetValue = if (visualPressed) 0.94f else 1f,
@@ -93,7 +77,7 @@ fun GlassButton(
         Modifier.background(if (visualPressed) GlassSurfacePressed else GlassSurface, shape)
     }
 
-    // Pilih modifier klik secara dinamis berdasarkan parameter autoRepeat
+    val interactionSource = remember { MutableInteractionSource() }
     val clickModifier = if (autoRepeat) {
         Modifier.repeatingClickable(
             interactionSource = interactionSource,
@@ -112,6 +96,21 @@ fun GlassButton(
     Box(
         modifier = modifier
             .then(clickModifier)
+            .pointerInput(onPressedChange, enabled) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    if (!enabled) return@awaitEachGesture
+                    visualPressed = true
+                    onPressedChange?.invoke(true)
+                    try {
+                        waitForUpOrCancellation()
+                    } finally {
+                        delay(110)
+                        visualPressed = false
+                        onPressedChange?.invoke(false)
+                    }
+                }
+            }
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .then(backgroundModifier)
             .border(1.dp, if (visualPressed) GlassBorderStrong else borderColor, shape),
