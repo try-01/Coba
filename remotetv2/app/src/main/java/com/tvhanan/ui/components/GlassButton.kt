@@ -98,18 +98,20 @@ fun GlassButton(
         modifier = modifier
             .then(clickModifier)
             .pointerInput(onPressedChange, enabled) {
-                var resetJob: Job? = null
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
-                    if (!enabled) return@awaitEachGesture
-                    resetJob?.cancel()
-                    visualPressed = true
-                    onPressedChange?.invoke(true)
-                    waitForUpOrCancellation()
-                    resetJob = launch {
-                        delay(110)
-                        visualPressed = false
-                        onPressedChange?.invoke(false)
+                coroutineScope {
+                    var resetJob: Job? = null
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        if (!enabled) return@awaitEachGesture
+                        resetJob?.cancel()
+                        visualPressed = true
+                        onPressedChange?.invoke(true)
+                        waitForUpOrCancellation()
+                        resetJob = launch {
+                            delay(110)
+                            visualPressed = false
+                            onPressedChange?.invoke(false)
+                        }
                     }
                 }
             }
