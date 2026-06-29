@@ -31,7 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
-import androidx.compose.material.icons.automirrored.filled.List as AutoMirroredList
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Input
 import androidx.compose.material.icons.filled.SettingsInputHdmi
@@ -424,7 +424,7 @@ private fun VolumeChannelSection(viewModel: RemoteViewModel, scaleFactor: Float)
                 PillCell(icon = Icons.Filled.Remove, autoRepeat = true) { viewModel.sendKey(RemoteKey.CH_DOWN) },
                 PillCell(icon = Icons.Filled.Tv) { },
                 PillCell(icon = Icons.Filled.Add, autoRepeat = true) { viewModel.sendKey(RemoteKey.CH_UP) },
-                PillCell(icon = AutoMirroredList) { viewModel.sendKey(RemoteKey.CH_LIST) }
+                PillCell(icon = Icons.AutoMirrored.Filled.List) { viewModel.sendKey(RemoteKey.CH_LIST) }
             )
         )
         HapticGlassButton(
