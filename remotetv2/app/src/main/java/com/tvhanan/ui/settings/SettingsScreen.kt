@@ -18,6 +18,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -279,7 +283,7 @@ private fun SettingsHeaderBar(onBack: () -> Unit) {
             modifier = Modifier.size(38.dp),
             shape = CircleShape
         ) {
-            Text("\u2190", color = TextPrimary, style = MaterialTheme.typography.bodyLarge)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(20.dp))
         }
         Spacer(modifier = Modifier.size(width = 12.dp, height = 1.dp))
         Text("Pengaturan", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
@@ -309,7 +313,7 @@ private fun TvInfoCard(device: TvDevice?, isConnected: Boolean) {
                     .border(1.dp, GlassBorder, RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Text("\uD83D\uDCFA", style = MaterialTheme.typography.titleLarge)
+                Icon(Icons.Filled.Tv, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(24.dp))
             }
             Spacer(modifier = Modifier.size(width = 14.dp, height = 1.dp))
             Column {

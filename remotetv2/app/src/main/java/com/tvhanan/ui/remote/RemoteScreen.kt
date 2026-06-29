@@ -26,6 +26,30 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.List as AutoMirroredList
+import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Input
+import androidx.compose.material.icons.filled.SettingsInputHdmi
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -258,7 +282,7 @@ private fun RemoteHeaderBar(
             modifier = Modifier.size(34.dp),
             shape = CircleShape
         ) {
-            Text("⚙", color = TextDim, style = MaterialTheme.typography.bodyMedium)
+            Icon(Icons.Filled.Settings, contentDescription = null, tint = TextDim, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -294,7 +318,7 @@ private fun StandbyBanner(onWakeClick: () -> Unit, scaleFactor: Float) {
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("⏻", color = NavAccent2, fontSize = (28 * scaleFactor).sp)
+        Icon(Icons.Filled.PowerSettingsNew, contentDescription = null, tint = NavAccent2, modifier = Modifier.size((28 * scaleFactor).dp))
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "TV dalam Mode Siaga (Standby)",
@@ -331,21 +355,21 @@ private fun PowerSourceSleepRow(viewModel: RemoteViewModel, scaleFactor: Float) 
             borderColor = PowerGradientStart.copy(alpha = 0.38f)
         ) {
             // Menggunakan Simbol Daya IEC ⏻ (Unicode Power)
-            Text("⏻", color = Color(0xFFFFB199), style = MaterialTheme.typography.titleLarge, fontSize = (22 * scaleFactor).sp)
+            Icon(Icons.Filled.PowerSettingsNew, contentDescription = null, tint = Color(0xFFFFB199), modifier = Modifier.size((24 * scaleFactor).dp))
         }
         HapticGlassButton(
             onClick = { viewModel.sendKey(RemoteKey.SOURCE) },
             modifier = Modifier.weight(1f).height(height)
         ) {
             // Menggunakan Simbol Input Berputar/Siklus ⇥
-            Text("⇥", color = TextPrimary, style = MaterialTheme.typography.titleLarge, fontSize = (20 * scaleFactor).sp)
+            Icon(Icons.Filled.Input, contentDescription = null, tint = TextPrimary, modifier = Modifier.size((22 * scaleFactor).dp))
         }
         HapticGlassButton(
             onClick = { viewModel.sendKey(RemoteKey.HDMI) },
             modifier = Modifier.weight(1f).height(height)
         ) {
             // Menggunakan Simbol Steker/Konektor Kabel 🔌
-            Text("🔌", color = TextPrimary, style = MaterialTheme.typography.titleLarge, fontSize = (18 * scaleFactor).sp)
+            Icon(Icons.Filled.SettingsInputHdmi, contentDescription = null, tint = TextPrimary, modifier = Modifier.size((22 * scaleFactor).dp))
         }
     }
 }
@@ -354,31 +378,31 @@ private fun PowerSourceSleepRow(viewModel: RemoteViewModel, scaleFactor: Float) 
 private fun BackHomeExitRow(viewModel: RemoteViewModel, scaleFactor: Float) {
     val height = (50 * scaleFactor).dp
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        HapticGlassLabelButton(
-            label = "↶", // Menggunakan Kurva Putar Balik untuk 'Back'
+        HapticGlassButton(
             onClick = { viewModel.sendKey(RemoteKey.BACK) },
-            modifier = Modifier.weight(1f).height(height),
-            fontSize = (20 * scaleFactor).sp
-        )
-        HapticGlassLabelButton(
-            label = "⌂", // Menggunakan Simbol Rumah Klasik untuk 'Home'
+            modifier = Modifier.weight(1f).height(height)
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = TextPrimary, modifier = Modifier.size((20 * scaleFactor).dp))
+        }
+        HapticGlassButton(
             onClick = { viewModel.sendKey(RemoteKey.HOME) },
-            modifier = Modifier.weight(1f).height(height),
-            fontSize = (22 * scaleFactor).sp
-        )
-        HapticGlassLabelButton(
-            label = "✕", // Menggunakan Cross Ramping untuk 'Exit'
+            modifier = Modifier.weight(1f).height(height)
+        ) {
+            Icon(Icons.Filled.Home, contentDescription = null, tint = TextPrimary, modifier = Modifier.size((22 * scaleFactor).dp))
+        }
+        HapticGlassButton(
             onClick = { viewModel.sendKey(RemoteKey.EXIT) },
-            modifier = Modifier.weight(1f).height(height),
-            fontSize = (18 * scaleFactor).sp
-        )
+            modifier = Modifier.weight(1f).height(height)
+        ) {
+            Icon(Icons.Filled.Close, contentDescription = null, tint = TextPrimary, modifier = Modifier.size((18 * scaleFactor).dp))
+        }
     }
 }
 
 private data class PillCell(
-    val label: String, 
-    val isSymbol: Boolean, 
-    val autoRepeat: Boolean = false, // Default bernilai false
+    val icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    val label: String? = null,
+    val autoRepeat: Boolean = false,
     val onClick: () -> Unit
 )
 
@@ -388,27 +412,27 @@ private fun VolumeChannelSection(viewModel: RemoteViewModel, scaleFactor: Float)
         PillRow(
             scaleFactor = scaleFactor,
             cells = listOf(
-                PillCell("−", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.VOL_DOWN) },
-                PillCell("🔊", isSymbol = true) { },
-                PillCell("+", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.VOL_UP) },
-                PillCell("🔇", isSymbol = true) { viewModel.sendKey(RemoteKey.MUTE) }
+                PillCell(icon = Icons.Filled.Remove, autoRepeat = true) { viewModel.sendKey(RemoteKey.VOL_DOWN) },
+                PillCell(icon = Icons.AutoMirrored.Filled.VolumeUp) { },
+                PillCell(icon = Icons.Filled.Add, autoRepeat = true) { viewModel.sendKey(RemoteKey.VOL_UP) },
+                PillCell(icon = Icons.AutoMirrored.Filled.VolumeOff) { viewModel.sendKey(RemoteKey.MUTE) }
             )
         )
         PillRow(
             scaleFactor = scaleFactor,
             cells = listOf(
-                PillCell("−", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.CH_DOWN) },
-                PillCell("📺", isSymbol = true) { },
-                PillCell("+", isSymbol = true, autoRepeat = true) { viewModel.sendKey(RemoteKey.CH_UP) },
-                PillCell("☰", isSymbol = true) { viewModel.sendKey(RemoteKey.CH_LIST) }
+                PillCell(icon = Icons.Filled.Remove, autoRepeat = true) { viewModel.sendKey(RemoteKey.CH_DOWN) },
+                PillCell(icon = Icons.Filled.Tv) { },
+                PillCell(icon = Icons.Filled.Add, autoRepeat = true) { viewModel.sendKey(RemoteKey.CH_UP) },
+                PillCell(icon = AutoMirroredList) { viewModel.sendKey(RemoteKey.CH_LIST) }
             )
         )
-        HapticGlassLabelButton(
-            label = "⇄",
+        HapticGlassButton(
             onClick = { viewModel.sendKey(RemoteKey.PRE_CH) },
-            modifier = Modifier.fillMaxWidth().height((46 * scaleFactor).dp),
-            fontSize = (20 * scaleFactor).sp
-        )
+            modifier = Modifier.fillMaxWidth().height((46 * scaleFactor).dp)
+        ) {
+            Icon(Icons.Filled.SwapHoriz, contentDescription = null, tint = TextPrimary, modifier = Modifier.size((20 * scaleFactor).dp))
+        }
     }
 }
 
@@ -435,11 +459,11 @@ private fun PillRow(cells: List<PillCell>, scaleFactor: Float) {
                 autoRepeat = cell.autoRepeat, // SALURKAN AUTO-REPEAT DI SINI
                 borderColor = Color.Transparent
             ) {
-                Text(
-                    text = cell.label,
-                    color = if (cell.isSymbol) TextPrimary else TextDim,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                if (cell.icon != null) {
+                    Icon(cell.icon, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(18.dp))
+                } else {
+                    Text(text = cell.label ?: "", color = TextPrimary, style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
     }
@@ -500,13 +524,12 @@ private fun ColorKeyButton(label: String, color: Color, modifier: Modifier, heig
 
 @Composable
 private fun MediaTransportRow(viewModel: RemoteViewModel, scaleFactor: Float) {
-    val buttons = listOf(
-        // Triple berisi: Icon, Perintah, dan status Auto-Repeat (true/false)
-        Triple("\u23EA", { viewModel.sendKey(RemoteKey.REWIND) }, true),      // Rewind -> TRUE
-        Triple("\u25B6", { viewModel.sendKey(RemoteKey.PLAY) }, false),
-        Triple("\u23F8", { viewModel.sendKey(RemoteKey.PAUSE) }, false),
-        Triple("\u23F9", { viewModel.sendKey(RemoteKey.STOP) }, false),
-        Triple("\u23E9", { viewModel.sendKey(RemoteKey.FAST_FORWARD) }, true) // Fast Forward -> TRUE
+    val buttons = listOf<Triple<androidx.compose.ui.graphics.vector.ImageVector, () -> Unit, Boolean>>(
+        Triple(Icons.Filled.FastRewind, { viewModel.sendKey(RemoteKey.REWIND) }, true),
+        Triple(Icons.Filled.PlayArrow, { viewModel.sendKey(RemoteKey.PLAY) }, false),
+        Triple(Icons.Filled.Pause, { viewModel.sendKey(RemoteKey.PAUSE) }, false),
+        Triple(Icons.Filled.Stop, { viewModel.sendKey(RemoteKey.STOP) }, false),
+        Triple(Icons.Filled.FastForward, { viewModel.sendKey(RemoteKey.FAST_FORWARD) }, true)
     )
     val height = (52 * scaleFactor).dp
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -515,11 +538,11 @@ private fun MediaTransportRow(viewModel: RemoteViewModel, scaleFactor: Float) {
                 onClick = action,
                 modifier = Modifier.weight(1f).height(height),
                 shape = RoundedCornerShape(15.dp),
-                autoRepeat = autoRepeat, // SALURKAN AUTO-REPEAT DI SINI
+                autoRepeat = autoRepeat,
                 gradientColors = listOf(MediaAccent.copy(alpha = 0.14f), MediaAccent2.copy(alpha = 0.10f)),
                 borderColor = MediaAccent.copy(alpha = 0.25f)
             ) {
-                Text(icon, color = MediaAccent, style = MaterialTheme.typography.bodyLarge)
+                Icon(icon, contentDescription = null, tint = MediaAccent, modifier = Modifier.size(22.dp))
             }
         }
     }
@@ -527,26 +550,20 @@ private fun MediaTransportRow(viewModel: RemoteViewModel, scaleFactor: Float) {
 
 @Composable
 private fun MenuInfoGrid(viewModel: RemoteViewModel, scaleFactor: Float) {
-    val items = listOf(
-        Triple("☰", RemoteKey.MENU, "☰"),  // Menu -> List Rata Kiri
-        Triple("📅", RemoteKey.GUIDE, "📅"), // Guide -> Kalender Agenda
-        Triple("ℹ", RemoteKey.INFO, "ℹ")   // Info -> Huruf i Informasi
+    val items = listOf<Pair<androidx.compose.ui.graphics.vector.ImageVector, RemoteKey>>(
+        Icons.Filled.Menu to RemoteKey.MENU,
+        Icons.Filled.DateRange to RemoteKey.GUIDE,
+        Icons.Filled.Info to RemoteKey.INFO
     )
     val height = (58 * scaleFactor).dp
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-        items.forEach { (label, key, icon) ->
+        items.forEach { (icon, key) ->
             HapticGlassButton(
                 onClick = { viewModel.sendKey(key) },
                 modifier = Modifier.weight(1f).height(height),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                // Tampilan bersih terpusat tanpa sub-label teks di bawahnya
-                Text(
-                    text = icon,
-                    color = TextPrimary.copy(alpha = 0.85f),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontSize = (20 * scaleFactor).sp
-                )
+                Icon(icon, contentDescription = null, tint = TextPrimary.copy(alpha = 0.85f), modifier = Modifier.size((22 * scaleFactor).dp))
             }
         }
     }

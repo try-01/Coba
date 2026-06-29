@@ -40,10 +40,10 @@ val ColorKeyYellow = Color(0xFFFFD98C)
 val ColorKeyBlue = Color(0xFF8FC0FF)
 
 // ===== Mesh gradient blobs — dipakai sekali oleh MeshBackground =====
-val MeshBlob1 = Color(0xFF1E2A4A) // biru tua keunguan
-val MeshBlob2 = Color(0xFF3A1F3D) // ungu-marun gelap
-val MeshBlob3 = Color(0xFF16313A) // teal gelap
-val MeshBlob4 = Color(0xFF2E1E46) // ungu tambahan
+val MeshBlob1 = Color(0xFF2A4980)
+val MeshBlob2 = Color(0xFF5C2A66)
+val MeshBlob3 = Color(0xFF1F5C66)
+val MeshBlob4 = Color(0xFF4B2E73)
 
 // ===== Warning/accent angka =====
 val AccentWarn = Color(0xFFFFC857)

@@ -6,6 +6,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -114,15 +120,16 @@ private fun androidx.compose.foundation.layout.BoxScope.DpadArrowZone(
         autoRepeat = true, // AKTIFKAN AUTO-REPEAT DI SINI
         borderColor = NavAccent.copy(alpha = 0.08f)
     ) {
-        Text(
-            text = when (direction) {
-                DpadDirection.UP -> "\u25B2"
-                DpadDirection.DOWN -> "\u25BC"
-                DpadDirection.LEFT -> "\u25C0"
-                DpadDirection.RIGHT -> "\u25B6"
+        Icon(
+            imageVector = when (direction) {
+                DpadDirection.UP -> Icons.Filled.KeyboardArrowUp
+                DpadDirection.DOWN -> Icons.Filled.KeyboardArrowDown
+                DpadDirection.LEFT -> Icons.Filled.KeyboardArrowLeft
+                DpadDirection.RIGHT -> Icons.Filled.KeyboardArrowRight
             },
-            color = TextPrimary.copy(alpha = 0.85f),
-            style = MaterialTheme.typography.titleMedium
+            contentDescription = null,
+            tint = TextPrimary.copy(alpha = 0.85f),
+            modifier = Modifier.size(26.dp)
         )
     }
 }

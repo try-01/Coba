@@ -19,6 +19,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -166,7 +170,7 @@ private fun TvDeviceCard(
                         .border(1.dp, NavAccent.copy(alpha = 0.25f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("\uD83D\uDCFA", style = MaterialTheme.typography.bodyMedium)
+                    Icon(Icons.Filled.Tv, contentDescription = null, tint = NavAccent, modifier = Modifier.size(20.dp))
                 }
                 Spacer(modifier = Modifier.size(width = 12.dp, height = 1.dp))
                 Column {
@@ -183,11 +187,7 @@ private fun TvDeviceCard(
                 }
             }
 
-            Text(
-                text = "\u2192",
-                style = MaterialTheme.typography.titleLarge,
-                color = NavAccent
-            )
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = NavAccent, modifier = Modifier.size(20.dp))
         }
     }
 }
