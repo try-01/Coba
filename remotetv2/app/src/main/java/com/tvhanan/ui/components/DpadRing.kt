@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -40,30 +41,30 @@ fun DpadRing(
     modifier: Modifier = Modifier,
     size: androidx.compose.ui.unit.Dp = 216.dp
 ) {
+    val sweepBrush = remember {
+        Brush.sweepGradient(
+            listOf(
+                NavAccent.copy(alpha = 0.55f),
+                NavAccent2.copy(alpha = 0.55f),
+                NavAccent.copy(alpha = 0.55f)
+            )
+        )
+    }
+    val radialBrush = remember {
+        Brush.radialGradient(
+            listOf(Color(0xFF14161C), Color(0xFF0D0E12))
+        )
+    }
     Box(
         modifier = modifier
             .size(size)
-            .background(
-                brush = Brush.sweepGradient(
-                    listOf(
-                        NavAccent.copy(alpha = 0.55f),
-                        NavAccent2.copy(alpha = 0.55f),
-                        NavAccent.copy(alpha = 0.55f)
-                    )
-                ),
-                shape = CircleShape
-            ),
+            .background(brush = sweepBrush, shape = CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
                 .size(size - 6.dp)
-                .background(
-                    brush = Brush.radialGradient(
-                        listOf(Color(0xFF14161C), Color(0xFF0D0E12))
-                    ),
-                    shape = CircleShape
-                )
+                .background(brush = radialBrush, shape = CircleShape)
         ) {
             DpadArrowZone(onClick = onUp, alignment = Alignment.TopCenter, direction = DpadDirection.UP)
             DpadArrowZone(onClick = onDown, alignment = Alignment.BottomCenter, direction = DpadDirection.DOWN)

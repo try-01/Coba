@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -106,21 +107,23 @@ fun RemoteScreen(
         }
     }
 
+    val listState = rememberLazyListState()
+
     Box(modifier = Modifier.fillMaxSize().background(BgBase)) {
-        // Hanya gambar aurora jika fitur diaktifkan di menu Pengaturan
         if (meshBackgroundEnabled) {
             MeshGradientBackground(modifier = Modifier.fillMaxSize())
         }
 
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()      // Padding otomatis setinggi Status Bar (Atas)
-                .navigationBarsPadding(),  // Padding otomatis setinggi Tombol Navigasi Sistem (Bawah)
+                .statusBarsPadding()
+                .navigationBarsPadding(),
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy((18 * scaleFactor).dp)
         ) {
-            item {
+            item(key = "header") {
                 RemoteHeaderBar(
                     connectionState = connectionState,
                     isMacAvailable = isMacAvailable,
@@ -128,25 +131,24 @@ fun RemoteScreen(
                 )
             }
 
-            // Tampilkan Banner Siaga pintar jika TV offline namun memiliki MAC (bisa di-WOL)
             if (connectionState == ConnectionState.ERROR || connectionState == ConnectionState.DISCONNECTED) {
                 if (isMacAvailable) {
-                    item { 
+                    item(key = "standby_banner") {
                         StandbyBanner(
-                            onWakeClick = { viewModel.wakeOnLan() }, 
-                            scaleFactor = scaleFactor 
-                        ) 
+                            onWakeClick = { viewModel.wakeOnLan() },
+                            scaleFactor = scaleFactor
+                        )
                     }
                 } else {
                     errorMessage?.let { message ->
-                        item { ErrorBanner(message = message, onRetry = { viewModel.connect() }) }
+                        item(key = "error_banner") { ErrorBanner(message = message, onRetry = { viewModel.connect() }) }
                     }
                 }
             }
 
-            item { PowerSourceSleepRow(viewModel, scaleFactor) }
+            item(key = "power_row") { PowerSourceSleepRow(viewModel, scaleFactor) }
 
-            item {
+            item(key = "navigation") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     ZoneLabel("Navigasi", accentColor = NavAccent)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
@@ -163,21 +165,21 @@ fun RemoteScreen(
                 }
             }
 
-            item {
+            item(key = "volume_channel") {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     ZoneLabel("Volume & Channel", accentColor = NavAccent2)
                     VolumeChannelSection(viewModel, scaleFactor)
                 }
             }
 
-            item {
+            item(key = "numpad") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ZoneLabel("Angka", accentColor = AccentWarn)
                     NumpadGrid(viewModel, scaleFactor)
                 }
             }
 
-            item {
+            item(key = "color_keys") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ZoneLabel(
                         "Smart Hub Color Keys",
@@ -187,21 +189,21 @@ fun RemoteScreen(
                 }
             }
 
-            item {
+            item(key = "media") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ZoneLabel("Media", accentColor = MediaAccent)
                     MediaTransportRow(viewModel, scaleFactor)
                 }
             }
 
-            item {
+            item(key = "menu_info") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ZoneLabel("Menu & Info", accentColor = TextDim)
                     MenuInfoGrid(viewModel, scaleFactor)
                 }
             }
 
-            item {
+            item(key = "app_shortcuts") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ZoneLabel(
                         "App Pintasan",

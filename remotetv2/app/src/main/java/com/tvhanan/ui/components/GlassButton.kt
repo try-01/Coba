@@ -19,10 +19,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -111,8 +111,8 @@ fun GlassButton(
 
     Box(
         modifier = modifier
-            .then(clickModifier) // Pasang modifier klik dinamis
-            .scale(scale)
+            .then(clickModifier)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .then(backgroundModifier)
             .border(1.dp, if (visualPressed) GlassBorderStrong else borderColor, shape),
         contentAlignment = Alignment.Center
