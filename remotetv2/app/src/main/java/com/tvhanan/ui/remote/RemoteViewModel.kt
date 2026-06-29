@@ -125,20 +125,22 @@ class RemoteViewModel(
             val mac = macAddress ?: repository.macAddress.firstOrNull()
             if (!mac.isNullOrBlank()) {
                 Log.d(TAG, "Mencoba menyalakan TV via WoL (dengan Retry) ke MAC: $mac")
-                
+
                 val success = repository.wakeOnLan(mac)
-                
+
                 if (success) {
-                    launch {
-                        _errorMessage.value = "TV sedang dinyalakan, mencoba menghubungkan kembali..."
-                        kotlinx.coroutines.delay(4000)
-                        
-                        repeat(4) { attempt ->
-                            if (connectionState.value != ConnectionState.CONNECTED) {
-                                Log.d(TAG, "Auto-reconnect setelah WOL, percobaan ke-${attempt + 1}")
-                                connect()
-                                kotlinx.coroutines.delay(4000)
-                            }
+                    _errorMessage.value = "TV sedang dinyalakan, mencoba menghubungkan kembali..."
+                    kotlinx.coroutines.delay(8000)
+
+                    repeat(4) { attempt ->
+                        if (connectionState.value == ConnectionState.CONNECTED) return@repeat
+                        Log.d(TAG, "Auto-reconnect setelah WOL, percobaan ke-${attempt + 1}")
+                        connect()
+                        while (isConnecting.get()) {
+                            kotlinx.coroutines.delay(500)
+                        }
+                        if (connectionState.value != ConnectionState.CONNECTED && attempt < 3) {
+                            kotlinx.coroutines.delay(4000)
                         }
                     }
                 }
