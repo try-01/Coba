@@ -7,11 +7,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.navigation.compose.rememberNavController
 import com.tvhanan.ui.navigation.TvRemoteNavGraph
 import com.tvhanan.ui.theme.TvRemoteTheme
+import com.tvhanan.util.HapticUtil
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        HapticUtil.init(applicationContext)
 
         val app = application as TvRemoteApp
 
